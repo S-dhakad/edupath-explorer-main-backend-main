@@ -27,6 +27,7 @@ import { PublicModule } from './modules/public/public.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PlanSalesModule } from './modules/plan-sales/plan-sales.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -68,6 +69,7 @@ import { PlanSalesModule } from './modules/plan-sales/plan-sales.module';
     KycModule,
     PlanSalesModule,
   ],
+  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,
