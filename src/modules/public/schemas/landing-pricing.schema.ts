@@ -7,7 +7,10 @@ const PricingTierSchema = {
   id: { type: String, required: true },
   name: { type: String, required: true },
   tagline: { type: String, required: true },
+  /** MRP / original price (shown with strikethrough). */
   price: { type: Number, required: true },
+  /** Fixed price charged when a member referral promo code is applied. */
+  promoPrice: { type: Number },
   period: { type: String, required: true },
   features: { type: [String], default: [] },
   highlight: { type: Boolean, default: false },
@@ -18,13 +21,18 @@ const PricingTierSchema = {
   /** Tailwind gradient classes for cover top wash, e.g. `from-primary/70 via-primary/40 to-transparent` */
   accent: { type: String, required: true },
   courseIds: { type: [String], default: [] },
+  /** When true, tier appears on homepage / public pricing cards only (sell flow shows all active plans). */
+  showOnLanding: { type: Boolean, default: false },
 };
 
 export type LandingPricingTier = {
   id: string;
   name: string;
   tagline: string;
+  /** MRP / original price (shown with strikethrough). */
   price: number;
+  /** Fixed price charged when a member referral promo code is applied. */
+  promoPrice?: number;
   period: string;
   features: string[];
   highlight?: boolean;
@@ -35,6 +43,8 @@ export type LandingPricingTier = {
   accent: string;
   /** MongoDB course ids attached to this plan tier */
   courseIds?: string[];
+  /** Homepage marketing visibility (sell/checkout still lists all active plans). */
+  showOnLanding?: boolean;
 };
 
 /** One row in the /plans compare table; `cells[i]` aligns with `tiers[i]`. */

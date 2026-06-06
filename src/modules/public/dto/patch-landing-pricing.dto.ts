@@ -34,12 +34,20 @@ export class LandingPricingTierDto {
   @MaxLength(240)
   tagline: string;
 
-  @ApiProperty({ example: 1499 })
+  @ApiProperty({ example: 1499, description: 'Original / MRP price shown with strikethrough' })
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   @Max(99_999_999)
   price: number;
+
+  @ApiPropertyOptional({ example: 999, description: 'Fixed price applied when a member referral promo code is used' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(99_999_999)
+  promoPrice?: number;
 
   @ApiProperty({ example: 'month', description: 'Billing label shown after price' })
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -120,6 +128,13 @@ export class LandingPricingTierDto {
   @ArrayMaxSize(500)
   @IsString({ each: true })
   courseIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Show this plan on homepage / public pricing cards (sell flow lists all active plans)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  showOnLanding?: boolean;
 }
 
 /** One row in the /plans compare table; `cells[i]` = value for `tiers[i]`. */

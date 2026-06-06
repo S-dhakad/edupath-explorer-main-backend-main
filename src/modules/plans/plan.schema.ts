@@ -8,13 +8,18 @@ export class Plan {
   @Prop({ required: true })
   name: string;
 
+  /** MRP / original price shown with strikethrough (e.g. ₹1500). */
   @Prop({ required: true })
   price: number;
+
+  /** Fixed selling price when a member referral promo code is applied (e.g. ₹999). */
+  @Prop()
+  promoPrice?: number;
 
   @Prop([String])
   features: string[];
 
-  /** Links to admin landing pricing tier id (e.g. `pro`, `elite`). */
+  /** Links to admin landing pricing tier id (e.g. `basic`, `smart`). */
   @Prop({ unique: true, sparse: true })
   tierId?: string;
 

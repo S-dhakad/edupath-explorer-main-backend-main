@@ -51,7 +51,7 @@ export class PlanSalesService {
   async quoteCheckout(planId: string, promoCode?: string) {
     const plan = await this.planModel.findById(planId).lean();
     if (!plan) throw new NotFoundException('Plan not found');
-    const pricing = await this.resolvePlanPricing(plan.price, promoCode);
+    const pricing = await this.resolvePlanPricing(plan, promoCode);
     const tax = Math.round(pricing.finalSubtotal * 0.18);
     const settings = await this.settingsService.getGlobal();
     const commissionPreview = this.buildCommissionPreview(
@@ -64,6 +64,8 @@ export class PlanSalesService {
     return {
       planId,
       planName: plan.name,
+      originalPrice: plan.price,
+      promoPrice: (plan as any).promoPrice ?? null,
       listPrice: plan.price,
       memberPromoDiscountPercent: settings.memberPromoBuyerDiscountPercent,
       ...pricing,
@@ -112,8 +114,17 @@ export class PlanSalesService {
     };
   }
 
-  private async resolvePlanPricing(planPrice: number, promoCode?: string) {
-    const subtotal = planPrice;
+  /**
+   * Resolve pricing for a plan checkout.
+   * - Admin coupon codes: apply % or fixed discount off `plan.price`.
+   * - Member referral codes: use the plan's fixed `promoPrice` (if set), else
+   *   fall back to the global `memberPromoBuyerDiscountPercent` setting.
+   */
+  private async resolvePlanPricing(
+    plan: { price: number; promoPrice?: number },
+    promoCode?: string,
+  ) {
+    const subtotal = plan.price;
     const trimmed = promoCode?.trim()?.toUpperCase();
     if (!trimmed) {
       return {
@@ -148,10 +159,22 @@ export class PlanSalesService {
     if (!owner) throw new BadRequestException('Invalid promo / referral code');
     this.assertMemberPromoOwnerActive(owner);
 
-    const settings = await this.settingsService.getGlobal();
-    const pct = Math.min(100, Math.max(0, settings.memberPromoBuyerDiscountPercent ?? 40));
-    const discountAmount = Math.round((subtotal * pct) / 100);
-    const finalSubtotal = Math.max(0, subtotal - discountAmount);
+    // Use plan's fixed promoPrice if available, else fall back to global % setting.
+    let finalSubtotal: number;
+    let discountAmount: number;
+    let discountLabel: string;
+
+    if (plan.promoPrice != null && plan.promoPrice < subtotal) {
+      finalSubtotal = plan.promoPrice;
+      discountAmount = subtotal - finalSubtotal;
+      discountLabel = `Member promo price ₹${plan.promoPrice.toLocaleString('en-IN')}`;
+    } else {
+      const settings = await this.settingsService.getGlobal();
+      const pct = Math.min(100, Math.max(0, settings.memberPromoBuyerDiscountPercent ?? 40));
+      discountAmount = Math.round((subtotal * pct) / 100);
+      finalSubtotal = Math.max(0, subtotal - discountAmount);
+      discountLabel = `${pct}% member promo`;
+    }
 
     return {
       subtotal,
@@ -161,7 +184,7 @@ export class PlanSalesService {
       kind: 'member_referral' as const,
       referrerName: owner.name,
       promoOwner: owner,
-      discountLabel: `${pct}% member promo`,
+      discountLabel,
       attributionOnly: false,
     };
   }
@@ -210,7 +233,7 @@ export class PlanSalesService {
       buyerTempPassword: tempPassword,
     });
 
-    const pricing = await this.resolvePlanPricing(plan.price, promo);
+    const pricing = await this.resolvePlanPricing(plan, promo);
 
     const paymentOrder = await this.paymentGateway.createRazorpayLikeOrder(
       buyer._id.toString(),
@@ -284,7 +307,7 @@ export class PlanSalesService {
       await sale.save();
     }
 
-    const pricing = await this.resolvePlanPricing(plan.price, promo);
+    const pricing = await this.resolvePlanPricing(plan as any, promo);
 
     const paymentOrder = await this.paymentGateway.createRazorpayLikeOrder(
       buyerUserId,

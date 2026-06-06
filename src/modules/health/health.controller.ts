@@ -1,14 +1,14 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { ApiTags } from '@nestjs/swagger';
 
 @ApiTags('health')
 @Controller('health')
-export class AppController {
+export class HealthController {
   @Get()
-  @ApiOperation({ summary: 'Check API health status' })
-  getHealth() {
+  healthCheck() {
     return {
       status: 'ok',
+      uptime: process.uptime(),
       timestamp: new Date().toISOString(),
     };
   }

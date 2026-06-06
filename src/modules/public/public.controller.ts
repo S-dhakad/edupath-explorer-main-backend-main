@@ -38,7 +38,7 @@ export class PublicController {
   /** Homepage course-plan book cards (tiers + copy for cover / inside page). */
   @Get('pricing-plans')
   pricingPlans() {
-    return this.publicService.getPricingPlansPayload();
+    return this.publicService.getPricingPlansPayload({ landingOnly: true });
   }
 
   /** Guest checkout: validate member referral code without login. */

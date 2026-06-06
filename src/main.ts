@@ -26,7 +26,7 @@ async function bootstrap() {
   app.useWebSocketAdapter(new IoAdapter(app));
 
   app.enableCors({
-    origin: true,
+    origin: config.get<any>('cors.origin'),
     credentials: true,
   });
 

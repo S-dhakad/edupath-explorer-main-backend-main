@@ -23,6 +23,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/app.constants';
+import { buildMediaAbsoluteUrl } from '../../common/utils/media-url';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { InjectModel } from '@nestjs/mongoose';
@@ -175,10 +176,8 @@ export class AdminController {
     }
     const name = basename(file.path);
     const relativePath = `/uploads/videos/${name}`;
-    const configuredBase = (this.config.get<string>('media.publicBase') || '').replace(/\/$/, '');
-    const inferred = `${req.protocol}://${req.get('host') || 'localhost'}`;
-    const origin = configuredBase || inferred;
-    const url = `${origin.replace(/\/$/, '')}${relativePath}`;
+    const configuredBase = this.config.get<string>('media.publicBase') || '';
+    const url = buildMediaAbsoluteUrl(req, relativePath, configuredBase);
     return { path: relativePath, url, filename: name, size: file.size };
   }
 
@@ -215,10 +214,8 @@ export class AdminController {
     }
     const name = basename(file.path);
     const relativePath = `/uploads/media/${name}`;
-    const configuredBase = (this.config.get<string>('media.publicBase') || '').replace(/\/$/, '');
-    const inferred = `${req.protocol}://${req.get('host') || 'localhost'}`;
-    const origin = configuredBase || inferred;
-    const url = `${origin.replace(/\/$/, '')}${relativePath}`;
+    const configuredBase = this.config.get<string>('media.publicBase') || '';
+    const url = buildMediaAbsoluteUrl(req, relativePath, configuredBase);
     return { path: relativePath, url, filename: name, size: file.size };
   }
 }

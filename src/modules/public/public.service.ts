@@ -18,6 +18,7 @@ import { PlansService } from '../plans/plans.service';
 import {
   DEFAULT_LANDING_HERO,
   DEFAULT_LANDING_PRICING_TIERS,
+  DEFAULT_LANDING_VISIBLE_IDS,
   DEFAULT_PRICING_COMPARE_ROWS,
 } from './public.defaults';
 
@@ -129,6 +130,122 @@ export class PublicService {
       .exec();
   }
 
+  private isVisibleOnLanding(tier: LandingPricingTier): boolean {
+    if (tier.showOnLanding === true) return true;
+    if (tier.showOnLanding === false) return false;
+    return DEFAULT_LANDING_VISIBLE_IDS.includes(tier.id as (typeof DEFAULT_LANDING_VISIBLE_IDS)[number]);
+  }
+
+  /** Mongoose subdocuments lose fields when spread; always persist plain tier objects. */
+  private plainTier(tier: LandingPricingTier & { toObject?: () => LandingPricingTier }): LandingPricingTier {
+    const raw =
+      typeof tier.toObject === 'function'
+        ? tier.toObject()
+        : (tier as LandingPricingTier & { _id?: unknown });
+    const { _id: _omit, ...rest } = raw as LandingPricingTier & { _id?: unknown };
+    return rest as LandingPricingTier;
+  }
+
+  private hydrateTierFromDefaults(
+    plain: LandingPricingTier,
+    def: LandingPricingTier,
+  ): { tier: LandingPricingTier; changed: boolean } {
+    const patch: Partial<LandingPricingTier> = {};
+    let changed = false;
+
+    if (typeof plain.price !== 'number' || Number.isNaN(plain.price)) {
+      patch.price = def.price;
+      changed = true;
+    }
+    if (!plain.tagline?.trim()) {
+      patch.tagline = def.tagline;
+      changed = true;
+    }
+    if (!plain.period?.trim()) {
+      patch.period = def.period;
+      changed = true;
+    }
+    if (!plain.chip?.trim()) {
+      patch.chip = def.chip;
+      changed = true;
+    }
+    if (!plain.savings?.trim()) {
+      patch.savings = def.savings;
+      changed = true;
+    }
+    if (!plain.description?.trim()) {
+      patch.description = def.description;
+      changed = true;
+    }
+    if (!plain.accent?.trim()) {
+      patch.accent = def.accent;
+      changed = true;
+    }
+    if (!plain.features?.length) {
+      patch.features = def.features;
+      changed = true;
+    }
+    if (plain.promoPrice === undefined && def.promoPrice !== undefined) {
+      patch.promoPrice = def.promoPrice;
+      changed = true;
+    }
+    if (plain.showOnLanding === undefined && def.showOnLanding !== undefined) {
+      patch.showOnLanding = def.showOnLanding;
+      changed = true;
+    }
+
+    return { tier: changed ? { ...plain, ...patch } : plain, changed };
+  }
+
+  private mergeLandingPricingTiers(existing: LandingPricingTier[]): {
+    tiers: LandingPricingTier[];
+    changed: boolean;
+  } {
+    const defaultsById = new Map(DEFAULT_LANDING_PRICING_TIERS.map((t) => [t.id, t]));
+    const existingIds = new Set(existing.map((t) => t.id));
+    let changed = false;
+
+    const tiers = existing.map((tier) => {
+      const plain = this.plainTier(tier);
+      const def = defaultsById.get(plain.id);
+      if (!def) return plain;
+
+      const hydrated = this.hydrateTierFromDefaults(plain, def);
+      changed = changed || hydrated.changed;
+      return hydrated.tier;
+    });
+
+    for (const def of DEFAULT_LANDING_PRICING_TIERS) {
+      if (!existingIds.has(def.id)) {
+        tiers.push({ ...def });
+        changed = true;
+      }
+    }
+
+    return { tiers, changed };
+  }
+
+  /** One-time style migration when DB still has the old basic/smart/elite landing layout. */
+  private needsLandingVisibilityMigration(tiers: LandingPricingTier[]): boolean {
+    const byId = new Map(tiers.map((t) => [t.id, t]));
+    if (!byId.has('higher')) return true;
+    if (byId.get('basic')?.showOnLanding || byId.get('smart')?.showOnLanding) return true;
+    for (const id of DEFAULT_LANDING_VISIBLE_IDS) {
+      if (!byId.get(id)?.showOnLanding) return true;
+    }
+    return tiers.some((t) => t.showOnLanding === undefined);
+  }
+
+  private applyDefaultLandingVisibility(tiers: LandingPricingTier[]): LandingPricingTier[] {
+    const defaultsById = new Map(DEFAULT_LANDING_PRICING_TIERS.map((t) => [t.id, t]));
+    return tiers.map((tier) => {
+      const plain = this.plainTier(tier);
+      const def = defaultsById.get(plain.id);
+      if (!def || def.showOnLanding === undefined) return plain;
+      return { ...plain, showOnLanding: def.showOnLanding };
+    });
+  }
+
   async ensureLandingPricing(): Promise<LandingPricingDocument> {
     let doc = await this.landingPricingModel.findOne({ key: 'default' }).exec();
     if (!doc) {
@@ -138,9 +255,25 @@ export class PublicService {
         compareRows: DEFAULT_PRICING_COMPARE_ROWS,
       });
     }
+
+    let tiers = (doc.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS).map((t) =>
+      this.plainTier(t),
+    );
+    let changed = !doc.tiers?.length;
+
+    const merged = this.mergeLandingPricingTiers(tiers);
+    tiers = merged.tiers;
+    changed = changed || merged.changed;
+
+    if (this.needsLandingVisibilityMigration(tiers)) {
+      tiers = this.applyDefaultLandingVisibility(tiers);
+      changed = true;
+    }
+
     const updates: Record<string, unknown> = {};
-    if (!doc.tiers?.length) updates.tiers = DEFAULT_LANDING_PRICING_TIERS;
     if (!doc.compareRows?.length) updates.compareRows = DEFAULT_PRICING_COMPARE_ROWS;
+    if (changed) updates.tiers = tiers.map((t) => this.plainTier(t));
+
     if (Object.keys(updates).length) {
       return this.landingPricingModel
         .findOneAndUpdate({ key: 'default' }, { $set: updates }, { new: true })
@@ -149,16 +282,19 @@ export class PublicService {
     return doc;
   }
 
-  async getPricingPlansPayload() {
+  async getPricingPlansPayload(opts?: { landingOnly?: boolean }) {
     const doc = await this.ensureLandingPricing();
-    const tiers = doc.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
-    const tc = tiers.length;
+    const allTiers = doc.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
+    const tiers = opts?.landingOnly
+      ? allTiers.filter((t) => this.isVisibleOnLanding(t))
+      : allTiers;
+    const tc = allTiers.length;
     const padCells = (cells: string[]) => {
       const out = (cells || []).slice(0, tc);
       while (out.length < tc) out.push('—');
       return out;
     };
-    const compareRows =
+    const fullCompareRows =
       doc.compareRows?.length &&
       doc.compareRows.every((r) => Array.isArray(r.cells) && r.cells.length === tc)
         ? doc.compareRows
@@ -166,6 +302,21 @@ export class PublicService {
             label: row.label,
             cells: padCells(row.cells),
           }));
+
+    const landingIndices = opts?.landingOnly
+      ? allTiers.map((t, i) => (this.isVisibleOnLanding(t) ? i : -1)).filter((i) => i >= 0)
+      : null;
+
+    const compareRows = landingIndices
+      ? fullCompareRows.map((row) => ({
+          label: row.label,
+          cells: landingIndices.map((i) => row.cells[i] ?? '—'),
+        }))
+      : fullCompareRows.map((row) => ({
+          label: row.label,
+          cells: padCells(row.cells),
+        }));
+
     return { tiers, compareRows };
   }
 

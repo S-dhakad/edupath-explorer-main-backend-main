@@ -23,11 +23,12 @@ import { AdminModule } from './modules/admin/admin.module';
 import { CouponsModule } from './modules/coupons/coupons.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { BannersModule } from './modules/banners/banners.module';
+import { TeamMembersModule } from './modules/team-members/team-members.module';
 import { PublicModule } from './modules/public/public.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PlanSalesModule } from './modules/plan-sales/plan-sales.module';
-import { AppController } from './app.controller';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
   imports: [
@@ -65,11 +66,12 @@ import { AppController } from './app.controller';
     CouponsModule,
     ReviewsModule,
     BannersModule,
+    TeamMembersModule,
     PublicModule,
     KycModule,
     PlanSalesModule,
+    HealthModule,
   ],
-  controllers: [AppController],
   providers: [
     {
       provide: APP_GUARD,

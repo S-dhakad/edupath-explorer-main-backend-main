@@ -20,6 +20,7 @@ import { Plan, PlanDocument } from '../modules/plans/plan.schema';
 import { Wallet, WalletDocument } from '../modules/wallet/schemas/wallet.schema';
 import { PromoCoupon, PromoCouponDocument } from '../modules/coupons/promo-coupon.schema';
 import { PlansService } from '../modules/plans/plans.service';
+import { TeamMembersService } from '../modules/team-members/team-members.service';
 
 const DEMO_PASSWORD = 'Demo123!';
 
@@ -27,7 +28,7 @@ type DummyUserDef = {
   name: string;
   email: string;
   referralCode: string;
-  planName?: 'Starter' | 'Pro' | 'Elite';
+  planName?: 'Basic' | 'Smart' | 'Elite' | 'Premium';
   referredByEmail?: string;
   role?: UserRole;
 };
@@ -38,20 +39,20 @@ const DUMMY_USERS: DummyUserDef[] = [
     name: 'Alex Demo Seller',
     email: 'alex@demo.local',
     referralCode: 'ALEXDEMO01',
-    planName: 'Pro',
+    planName: 'Smart',
   },
   {
     name: 'Priya Demo Member',
     email: 'priya@demo.local',
     referralCode: 'PRIYADEMO2',
-    planName: 'Starter',
+    planName: 'Basic',
     referredByEmail: 'alex@demo.local',
   },
   {
     name: 'Rohan Demo Member',
     email: 'rohan@demo.local',
     referralCode: 'ROHANDEMO3',
-    planName: 'Pro',
+    planName: 'Smart',
     referredByEmail: 'alex@demo.local',
   },
   {
@@ -63,7 +64,7 @@ const DUMMY_USERS: DummyUserDef[] = [
     name: 'Explorer Test User',
     email: 'user@edupath.local',
     referralCode: 'EDUPATH01',
-    planName: 'Starter',
+    planName: 'Basic',
   },
 ];
 
@@ -107,14 +108,17 @@ async function run() {
   );
 
   const planDefs = [
-    { name: 'Starter', price: 999, features: ['Core courses', 'Community access'] },
-    { name: 'Pro', price: 2999, features: ['All courses', 'Affiliate tools', 'Priority support'] },
-    { name: 'Elite', price: 9999, features: ['Everything in Pro', '1:1 mentorship', 'Highest commissions'] },
+    { name: 'Basic Package', tierId: 'basic', price: 799, promoPrice: 499, features: ['Social media mastery', 'Social media automation', 'Sales marketing', 'Marketing mindset', 'Whatsapp automation', 'English grammar Mastery'] },
+    { name: 'Smart Package', tierId: 'smart', price: 1500, promoPrice: 999, features: ['Everything in basic plan', 'YouTube domination', 'Basic graphic design', 'Basic video editing', 'YouTube Short mastery', 'Public speaking'] },
+    { name: 'Elite Package', tierId: 'elite', price: 2500, promoPrice: 1999, features: ['Everything in smart package', 'Performance marketing', 'Ai tools', 'Advanced graphic designing', 'Advanced video editing', 'Advanced Excel mastery', 'Contact Marketing'] },
+    { name: 'Premium Package', tierId: 'premium', price: 9999, promoPrice: 7999, features: ['Everything in elite package', 'E-mail marketing', 'E-commerce', 'Digital marketing', 'Advanced Facebook ads', 'Drop shipping', 'Advanced sales techniques (Closing sales in 15 Days)'] },
+    { name: 'Higher Package', tierId: 'higher', price: 5999, promoPrice: 3999, features: ['Everything in premium package', 'Google ads', 'Figma', 'Meta ads', 'Facebook ads', 'OLX ads', 'Resume building for top companies'] },
   ];
   const planByName: Record<string, PlanDocument> = {};
   for (const p of planDefs) {
-    let doc = await planModel.findOne({ name: p.name });
+    let doc = await planModel.findOne({ tierId: p.tierId });
     if (!doc) doc = await planModel.create(p);
+    else await planModel.findByIdAndUpdate(doc._id, { $set: { price: p.price, promoPrice: p.promoPrice, features: p.features } });
     planByName[p.name] = doc;
   }
 
@@ -365,7 +369,7 @@ async function run() {
   const tiersWithCourses = baseTiers.map((t: { id: string }) => ({
     ...t,
     courseIds:
-      t.id === 'starter'
+      t.id === 'basic'
         ? starterCourseIds.length
           ? starterCourseIds
           : allCourseIdStrings.slice(0, 2)
@@ -380,12 +384,17 @@ async function run() {
   const plansService = app.get(PlansService);
   await plansService.syncFromLandingPricing();
 
-  const tierStarter = await planModel.findOne({ tierId: 'starter' });
-  const tierPro = await planModel.findOne({ tierId: 'pro' });
+  const teamMembersService = app.get(TeamMembersService);
+  await teamMembersService.ensureSeeded();
+  // eslint-disable-next-line no-console
+  console.log('Team members seeded for About Us (if collection was empty).');
+
+  const tierBasic = await planModel.findOne({ tierId: 'basic' });
+  const tierSmart = await planModel.findOne({ tierId: 'smart' });
   for (const def of DUMMY_USERS) {
     if (!def.planName) continue;
     const tierPlan =
-      def.planName === 'Starter' ? tierStarter : def.planName === 'Pro' ? tierPro : null;
+      def.planName === 'Basic' ? tierBasic : def.planName === 'Smart' ? tierSmart : null;
     if (tierPlan) {
       await userModel.updateOne(
         { email: def.email.toLowerCase() },
