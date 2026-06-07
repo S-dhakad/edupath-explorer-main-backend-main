@@ -1,7 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 import { Model, Types } from 'mongoose';
 import { LandingHero, LandingHeroDocument } from './schemas/landing-hero.schema';
-import { LandingPricing, LandingPricingDocument, LandingPricingTier, LandingPricingCompareRow } from './schemas/landing-pricing.schema';
+import { LandingPricing, LandingPricingDocument, LandingPricingTier } from './schemas/landing-pricing.schema';
 import { CourseDocument } from '../courses/course.schema';
 import { CategoryDocument } from '../categories/category.schema';
 import { ExplorerCourseDto } from './course-mapper';
@@ -59,10 +59,21 @@ export declare class PublicService {
     }> & {
         __v: number;
     }>;
+    private isVisibleOnLanding;
+    private plainTier;
+    private hydrateTierFromDefaults;
+    private mergeLandingPricingTiers;
+    private needsLandingVisibilityMigration;
+    private applyDefaultLandingVisibility;
     ensureLandingPricing(): Promise<LandingPricingDocument>;
-    getPricingPlansPayload(): Promise<{
+    getPricingPlansPayload(opts?: {
+        landingOnly?: boolean;
+    }): Promise<{
         tiers: LandingPricingTier[];
-        compareRows: LandingPricingCompareRow[];
+        compareRows: {
+            label: string;
+            cells: string[];
+        }[];
     }>;
     private validatePricingTiers;
     private validateCompareRows;

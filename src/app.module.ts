@@ -24,11 +24,14 @@ import { CouponsModule } from './modules/coupons/coupons.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { BannersModule } from './modules/banners/banners.module';
 import { TeamMembersModule } from './modules/team-members/team-members.module';
+import { MarketingToolsModule } from './modules/marketing-tools/marketing-tools.module';
+import { TrainingsModule } from './modules/trainings/trainings.module';
 import { PublicModule } from './modules/public/public.module';
 import { KycModule } from './modules/kyc/kyc.module';
 import { MailModule } from './modules/mail/mail.module';
 import { PlanSalesModule } from './modules/plan-sales/plan-sales.module';
 import { HealthModule } from './modules/health/health.module';
+import { ContactPageModule } from './modules/contact-page/contact-page.module';
 
 @Module({
   imports: [
@@ -67,10 +70,13 @@ import { HealthModule } from './modules/health/health.module';
     ReviewsModule,
     BannersModule,
     TeamMembersModule,
+    MarketingToolsModule,
+    TrainingsModule,
     PublicModule,
     KycModule,
     PlanSalesModule,
     HealthModule,
+    ContactPageModule,
   ],
   providers: [
     {

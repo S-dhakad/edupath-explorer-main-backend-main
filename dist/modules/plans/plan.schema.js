@@ -24,6 +24,10 @@ __decorate([
     __metadata("design:type", Number)
 ], Plan.prototype, "price", void 0);
 __decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", Number)
+], Plan.prototype, "promoPrice", void 0);
+__decorate([
     (0, mongoose_1.Prop)([String]),
     __metadata("design:type", Array)
 ], Plan.prototype, "features", void 0);

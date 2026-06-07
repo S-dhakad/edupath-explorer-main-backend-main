@@ -38,13 +38,22 @@ __decorate([
     __metadata("design:type", String)
 ], LandingPricingTierDto.prototype, "tagline", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({ example: 1499 }),
+    (0, swagger_1.ApiProperty)({ example: 1499, description: 'Original / MRP price shown with strikethrough' }),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.Min)(0),
     (0, class_validator_1.Max)(99_999_999),
     __metadata("design:type", Number)
 ], LandingPricingTierDto.prototype, "price", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({ example: 999, description: 'Fixed price applied when a member referral promo code is used' }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    (0, class_validator_1.Max)(99_999_999),
+    __metadata("design:type", Number)
+], LandingPricingTierDto.prototype, "promoPrice", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({ example: 'month', description: 'Billing label shown after price' }),
     (0, class_transformer_1.Transform)(({ value }) => (typeof value === 'string' ? value.trim() : value)),
@@ -136,6 +145,14 @@ __decorate([
     (0, class_validator_1.IsString)({ each: true }),
     __metadata("design:type", Array)
 ], LandingPricingTierDto.prototype, "courseIds", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Show this plan on homepage / public pricing cards (sell flow lists all active plans)',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], LandingPricingTierDto.prototype, "showOnLanding", void 0);
 class LandingPricingCompareRowDto {
 }
 exports.LandingPricingCompareRowDto = LandingPricingCompareRowDto;

@@ -152,6 +152,25 @@ let UsersService = class UsersService {
     async findById(id) {
         return this.userModel.findById(id).select('-password').exec();
     }
+    async updateProfileSelf(userId, data) {
+        const patch = {};
+        if (data.name !== undefined) {
+            const name = data.name.trim();
+            if (!name)
+                throw new common_1.BadRequestException('Name is required');
+            patch.name = name;
+        }
+        if (data.phone !== undefined) {
+            patch.phone = data.phone.trim();
+        }
+        if (data.avatarUrl !== undefined) {
+            patch.avatarUrl = data.avatarUrl;
+        }
+        if (!Object.keys(patch).length) {
+            return this.findById(userId);
+        }
+        return this.userModel.findByIdAndUpdate(userId, { $set: patch }, { new: true }).select('-password').exec();
+    }
     async updateProfileForSelfPlanPurchase(userId, data) {
         return this.userModel
             .findByIdAndUpdate(userId, {

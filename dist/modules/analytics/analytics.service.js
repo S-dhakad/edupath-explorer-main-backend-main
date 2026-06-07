@@ -63,7 +63,7 @@ let AnalyticsService = class AnalyticsService {
         sinceMonth.setMonth(sinceMonth.getMonth() - 1);
         const u = await this.userModel.findById(userId).select('referralCode').lean();
         const code = u?.referralCode;
-        const [totals, daySum, weekSum, monthSum, salesCount] = await Promise.all([
+        const [totals, daySum, weekSum, monthSum, passiveDaySum, passiveWeekSum, passiveMonthSum, salesCount] = await Promise.all([
             this.commissionModel.aggregate([
                 { $match: { beneficiaryUserId: uid, incomeCategory: { $in: ['active', 'passive'] } } },
                 {
@@ -104,6 +104,36 @@ let AnalyticsService = class AnalyticsService {
                 },
                 { $group: { _id: null, t: { $sum: '$amount' } } },
             ]),
+            this.commissionModel.aggregate([
+                {
+                    $match: {
+                        beneficiaryUserId: uid,
+                        incomeCategory: 'passive',
+                        createdAt: { $gte: sinceDay },
+                    },
+                },
+                { $group: { _id: null, t: { $sum: '$amount' } } },
+            ]),
+            this.commissionModel.aggregate([
+                {
+                    $match: {
+                        beneficiaryUserId: uid,
+                        incomeCategory: 'passive',
+                        createdAt: { $gte: sinceWeek },
+                    },
+                },
+                { $group: { _id: null, t: { $sum: '$amount' } } },
+            ]),
+            this.commissionModel.aggregate([
+                {
+                    $match: {
+                        beneficiaryUserId: uid,
+                        incomeCategory: 'passive',
+                        createdAt: { $gte: sinceMonth },
+                    },
+                },
+                { $group: { _id: null, t: { $sum: '$amount' } } },
+            ]),
             code
                 ? this.purchaseModel.countDocuments({
                     couponUsed: code,
@@ -119,6 +149,9 @@ let AnalyticsService = class AnalyticsService {
             todayIncome: daySum[0]?.t || 0,
             weeklyIncome: weekSum[0]?.t || 0,
             monthlyIncome: monthSum[0]?.t || 0,
+            todayPassiveIncome: passiveDaySum[0]?.t || 0,
+            weeklyPassiveIncome: passiveWeekSum[0]?.t || 0,
+            monthlyPassiveIncome: passiveMonthSum[0]?.t || 0,
             totalCourseSales: salesCount,
         };
     }

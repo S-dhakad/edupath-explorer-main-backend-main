@@ -25,6 +25,7 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const app_constants_1 = require("../../common/constants/app.constants");
+const media_url_1 = require("../../common/utils/media-url");
 const users_service_1 = require("../users/users.service");
 const courses_service_1 = require("../courses/courses.service");
 const mongoose_1 = require("@nestjs/mongoose");
@@ -119,10 +120,8 @@ let AdminController = class AdminController {
         }
         const name = (0, node_path_1.basename)(file.path);
         const relativePath = `/uploads/videos/${name}`;
-        const configuredBase = (this.config.get('media.publicBase') || '').replace(/\/$/, '');
-        const inferred = `${req.protocol}://${req.get('host') || 'localhost'}`;
-        const origin = configuredBase || inferred;
-        const url = `${origin.replace(/\/$/, '')}${relativePath}`;
+        const configuredBase = this.config.get('media.publicBase') || '';
+        const url = (0, media_url_1.buildMediaAbsoluteUrl)(req, relativePath, configuredBase);
         return { path: relativePath, url, filename: name, size: file.size };
     }
     async uploadMedia(file, req) {
@@ -131,10 +130,8 @@ let AdminController = class AdminController {
         }
         const name = (0, node_path_1.basename)(file.path);
         const relativePath = `/uploads/media/${name}`;
-        const configuredBase = (this.config.get('media.publicBase') || '').replace(/\/$/, '');
-        const inferred = `${req.protocol}://${req.get('host') || 'localhost'}`;
-        const origin = configuredBase || inferred;
-        const url = `${origin.replace(/\/$/, '')}${relativePath}`;
+        const configuredBase = this.config.get('media.publicBase') || '';
+        const url = (0, media_url_1.buildMediaAbsoluteUrl)(req, relativePath, configuredBase);
         return { path: relativePath, url, filename: name, size: file.size };
     }
 };

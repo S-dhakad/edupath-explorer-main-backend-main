@@ -38,7 +38,7 @@ let PublicController = class PublicController {
         return this.publicService.getCourseBySlug(slug);
     }
     pricingPlans() {
-        return this.publicService.getPricingPlansPayload();
+        return this.publicService.getPricingPlansPayload({ landingOnly: true });
     }
     validateReferral(body) {
         return this.usersService.validateReferralCodeForCheckout(body.code);

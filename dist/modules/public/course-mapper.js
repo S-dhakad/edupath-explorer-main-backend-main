@@ -15,8 +15,6 @@ const DEFAULT_WHAT_YOU_LEARN = [
 const DEFAULT_ENROLLMENT_BULLETS = [
     'Lifetime access',
     'Verified certificate',
-    '30-day money back',
-    'Mobile + offline access',
 ];
 function resolveMediaUrl(raw, mediaBase) {
     const u = (raw || '').trim();

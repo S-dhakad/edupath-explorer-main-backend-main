@@ -127,6 +127,28 @@ export class UsersService {
     return this.userModel.findById(id).select('-password').exec();
   }
 
+  async updateProfileSelf(
+    userId: string,
+    data: { name?: string; phone?: string; avatarUrl?: string },
+  ): Promise<UserDocument | null> {
+    const patch: Partial<User> = {};
+    if (data.name !== undefined) {
+      const name = data.name.trim();
+      if (!name) throw new BadRequestException('Name is required');
+      patch.name = name;
+    }
+    if (data.phone !== undefined) {
+      patch.phone = data.phone.trim();
+    }
+    if (data.avatarUrl !== undefined) {
+      patch.avatarUrl = data.avatarUrl;
+    }
+    if (!Object.keys(patch).length) {
+      return this.findById(userId);
+    }
+    return this.userModel.findByIdAndUpdate(userId, { $set: patch }, { new: true }).select('-password').exec();
+  }
+
   /** Set once when user first earns attribution (signup ref or first purchase with coupon). */
   async updateProfileForSelfPlanPurchase(
     userId: string,

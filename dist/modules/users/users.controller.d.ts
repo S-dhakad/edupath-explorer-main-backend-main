@@ -7,6 +7,7 @@ import { CoursesService } from '../courses/courses.service';
 import { PlansService } from '../plans/plans.service';
 import { KycService } from '../kyc/kyc.service';
 import { Types } from 'mongoose';
+import { UpdateProfileDto } from './dto/update-profile.dto';
 export declare class UsersController {
     private usersService;
     private purchasesService;
@@ -22,6 +23,13 @@ export declare class UsersController {
         title: string;
         modules: any;
     }>;
+    updateProfile(user: {
+        _id: Types.ObjectId;
+    }, body: UpdateProfileDto, avatar?: {
+        filename: string;
+    }): Promise<{
+        user: import("./user.schema").UserDocument;
+    }>;
     getDashboard(req: any): Promise<{
         error: string;
     } | {
@@ -34,6 +42,9 @@ export declare class UsersController {
         todayIncome: any;
         weeklyIncome: any;
         monthlyIncome: any;
+        todayPassiveIncome: any;
+        weeklyPassiveIncome: any;
+        monthlyPassiveIncome: any;
         totalCourseSales: number;
         user: import("./user.schema").UserDocument;
         kycStatus: string;

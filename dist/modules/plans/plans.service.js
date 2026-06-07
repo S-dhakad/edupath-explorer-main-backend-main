@@ -35,25 +35,33 @@ let PlansService = class PlansService {
         const tiers = doc?.tiers?.length ? doc.tiers : public_defaults_1.DEFAULT_LANDING_PRICING_TIERS;
         const tierIds = tiers.map((t) => t.id);
         await this.planModel
-            .updateMany({ tierId: { $exists: true, $nin: tierIds } }, { $set: { active: false } })
+            .updateMany({
+            $or: [
+                { tierId: { $exists: false } },
+                { tierId: null },
+                { tierId: '' },
+                { tierId: { $nin: tierIds } },
+            ],
+        }, { $set: { active: false } })
             .exec();
         for (const tier of tiers) {
             const courseIds = (tier.courseIds ?? [])
                 .map((id) => id?.trim())
                 .filter((id) => id && mongoose_2.Types.ObjectId.isValid(id))
                 .map((id) => new mongoose_2.Types.ObjectId(id));
+            const planSet = {
+                tierId: tier.id,
+                name: tier.name,
+                price: tier.price,
+                period: tier.period,
+                features: tier.features ?? [],
+                courseIds,
+                active: true,
+            };
+            if (tier.promoPrice != null)
+                planSet.promoPrice = tier.promoPrice;
             await this.planModel
-                .findOneAndUpdate({ tierId: tier.id }, {
-                $set: {
-                    tierId: tier.id,
-                    name: tier.name,
-                    price: tier.price,
-                    period: tier.period,
-                    features: tier.features ?? [],
-                    courseIds,
-                    active: true,
-                },
-            }, { upsert: true, new: true })
+                .findOneAndUpdate({ tierId: tier.id }, { $set: planSet }, { upsert: true, new: true })
                 .exec();
         }
     }
@@ -83,7 +91,10 @@ let PlansService = class PlansService {
     }
     async findActive() {
         await this.syncFromLandingPricing();
-        return this.planModel.find({ active: true }).sort({ price: 1 }).exec();
+        const doc = await this.landingPricingModel.findOne({ key: 'default' }).lean().exec();
+        const tiers = doc?.tiers?.length ? doc.tiers : public_defaults_1.DEFAULT_LANDING_PRICING_TIERS;
+        const tierIds = tiers.map((t) => t.id);
+        return this.planModel.find({ active: true, tierId: { $in: tierIds } }).sort({ price: 1 }).exec();
     }
     async findById(id) {
         return this.planModel.findById(id).exec();

@@ -5,6 +5,7 @@ export type LandingPricingTier = {
     name: string;
     tagline: string;
     price: number;
+    promoPrice?: number;
     period: string;
     features: string[];
     highlight?: boolean;
@@ -14,6 +15,7 @@ export type LandingPricingTier = {
     description: string;
     accent: string;
     courseIds?: string[];
+    showOnLanding?: boolean;
 };
 export type LandingPricingCompareRow = {
     label: string;

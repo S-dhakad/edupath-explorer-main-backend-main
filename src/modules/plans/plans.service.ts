@@ -31,8 +31,19 @@ export class PlansService {
       doc?.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
     const tierIds = tiers.map((t) => t.id);
 
+    // Deactivate plans not in admin tiers (includes legacy rows without tierId).
     await this.planModel
-      .updateMany({ tierId: { $exists: true, $nin: tierIds } }, { $set: { active: false } })
+      .updateMany(
+        {
+          $or: [
+            { tierId: { $exists: false } },
+            { tierId: null },
+            { tierId: '' },
+            { tierId: { $nin: tierIds } },
+          ],
+        },
+        { $set: { active: false } },
+      )
       .exec();
 
     for (const tier of tiers) {
@@ -94,7 +105,11 @@ export class PlansService {
 
   async findActive(): Promise<Plan[]> {
     await this.syncFromLandingPricing();
-    return this.planModel.find({ active: true }).sort({ price: 1 }).exec();
+    const doc = await this.landingPricingModel.findOne({ key: 'default' }).lean().exec();
+    const tiers: LandingPricingTier[] =
+      doc?.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
+    const tierIds = tiers.map((t) => t.id);
+    return this.planModel.find({ active: true, tierId: { $in: tierIds } }).sort({ price: 1 }).exec();
   }
 
   async findById(id: string): Promise<Plan | null> {

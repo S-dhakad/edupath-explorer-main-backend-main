@@ -43,7 +43,10 @@ export declare class PublicController {
     courseBySlug(slug: string): Promise<import("./course-mapper").ExplorerCourseDto>;
     pricingPlans(): Promise<{
         tiers: import("./schemas/landing-pricing.schema").LandingPricingTier[];
-        compareRows: import("./schemas/landing-pricing.schema").LandingPricingCompareRow[];
+        compareRows: {
+            label: string;
+            cells: string[];
+        }[];
     }>;
     validateReferral(body: {
         code: string;
@@ -58,7 +61,10 @@ export declare class LandingAdminController {
     constructor(publicService: PublicService);
     getPricing(): Promise<{
         tiers: import("./schemas/landing-pricing.schema").LandingPricingTier[];
-        compareRows: import("./schemas/landing-pricing.schema").LandingPricingCompareRow[];
+        compareRows: {
+            label: string;
+            cells: string[];
+        }[];
     }>;
     patchHero(body: Record<string, unknown>): Promise<import("mongoose").Document<unknown, {}, import("./schemas/landing-hero.schema").LandingHeroDocument, {}, {}> & import("./schemas/landing-hero.schema").LandingHero & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: import("mongoose").Types.ObjectId;

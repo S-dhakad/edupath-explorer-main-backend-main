@@ -25,7 +25,7 @@ async function bootstrap() {
     app.use((0, express_mongo_sanitize_1.default)());
     app.useWebSocketAdapter(new platform_socket_io_1.IoAdapter(app));
     app.enableCors({
-        origin: config.get('cors.origin'),
+        origin: true,
         credentials: true,
     });
     const uploadDirName = config.get('media.uploadDir') || 'uploads';
@@ -33,6 +33,7 @@ async function bootstrap() {
     const videosDir = (0, node_path_1.join)(uploadRoot, 'videos');
     const kycDir = (0, node_path_1.join)(uploadRoot, 'kyc');
     const mediaDir = (0, node_path_1.join)(uploadRoot, 'media');
+    const avatarsDir = (0, node_path_1.join)(uploadRoot, 'avatars');
     if (!(0, node_fs_1.existsSync)(videosDir)) {
         (0, node_fs_1.mkdirSync)(videosDir, { recursive: true });
     }
@@ -41,6 +42,9 @@ async function bootstrap() {
     }
     if (!(0, node_fs_1.existsSync)(mediaDir)) {
         (0, node_fs_1.mkdirSync)(mediaDir, { recursive: true });
+    }
+    if (!(0, node_fs_1.existsSync)(avatarsDir)) {
+        (0, node_fs_1.mkdirSync)(avatarsDir, { recursive: true });
     }
     app.useStaticAssets(uploadRoot, { prefix: '/uploads/' });
     app.useGlobalPipes(new common_1.ValidationPipe({

@@ -16,6 +16,7 @@ const PricingTierSchema = {
     name: { type: String, required: true },
     tagline: { type: String, required: true },
     price: { type: Number, required: true },
+    promoPrice: { type: Number },
     period: { type: String, required: true },
     features: { type: [String], default: [] },
     highlight: { type: Boolean, default: false },
@@ -25,6 +26,7 @@ const PricingTierSchema = {
     description: { type: String, required: true },
     accent: { type: String, required: true },
     courseIds: { type: [String], default: [] },
+    showOnLanding: { type: Boolean, default: false },
 };
 const CompareRowSchema = {
     label: { type: String, required: true },

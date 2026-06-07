@@ -12,6 +12,9 @@ export declare class AnalyticsController {
         todayIncome: any;
         weeklyIncome: any;
         monthlyIncome: any;
+        todayPassiveIncome: any;
+        weeklyPassiveIncome: any;
+        monthlyPassiveIncome: any;
         totalCourseSales: number;
     }>;
     earnings(user: any, g?: 'day' | 'week' | 'month', days?: string): Promise<any[]>;

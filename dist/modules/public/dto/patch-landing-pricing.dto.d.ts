@@ -3,6 +3,7 @@ export declare class LandingPricingTierDto {
     name: string;
     tagline: string;
     price: number;
+    promoPrice?: number;
     period: string;
     features: string[];
     highlight?: boolean;
@@ -12,6 +13,7 @@ export declare class LandingPricingTierDto {
     description: string;
     accent: string;
     courseIds?: string[];
+    showOnLanding?: boolean;
 }
 export declare class LandingPricingCompareRowDto {
     label: string;

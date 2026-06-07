@@ -15,6 +15,9 @@ export declare class AnalyticsService {
         todayIncome: any;
         weeklyIncome: any;
         monthlyIncome: any;
+        todayPassiveIncome: any;
+        weeklyPassiveIncome: any;
+        monthlyPassiveIncome: any;
         totalCourseSales: number;
     }>;
     private periodStart;

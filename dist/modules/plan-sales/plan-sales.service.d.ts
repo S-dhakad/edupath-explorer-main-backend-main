@@ -53,10 +53,14 @@ export declare class PlanSalesService {
         attributionOnly: boolean;
         planId: string;
         planName: string;
+        originalPrice: number;
+        promoPrice: any;
         listPrice: number;
         memberPromoDiscountPercent: number;
     }>;
     private assertMemberPromoOwnerActive;
+    private memberReferralPricing;
+    private memberReferralPricingWithSettings;
     private buildCommissionPreview;
     private resolvePlanPricing;
     initiateAffiliateCheckout(sellerId: string, dto: CreatePlanSaleDto): Promise<{

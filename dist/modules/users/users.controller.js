@@ -14,8 +14,13 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
+const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
 const config_1 = require("@nestjs/config");
+const multer_1 = require("multer");
+const node_crypto_1 = require("node:crypto");
+const node_path_1 = require("node:path");
+const node_fs_1 = require("node:fs");
 const users_service_1 = require("./users.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const purchases_service_1 = require("../purchases/purchases.service");
@@ -26,6 +31,27 @@ const app_constants_1 = require("../../common/constants/app.constants");
 const course_mapper_1 = require("../public/course-mapper");
 const plans_service_1 = require("../plans/plans.service");
 const kyc_service_1 = require("../kyc/kyc.service");
+const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
+const update_profile_dto_1 = require("./dto/update-profile.dto");
+const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
+function avatarDiskStorage() {
+    const uploadDir = process.env.MEDIA_UPLOAD_DIR || 'uploads';
+    const dir = (0, node_path_1.join)(process.cwd(), uploadDir, 'avatars');
+    return (0, multer_1.diskStorage)({
+        destination: (_req, _file, cb) => {
+            if (!(0, node_fs_1.existsSync)(dir))
+                (0, node_fs_1.mkdirSync)(dir, { recursive: true });
+            cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+            let ext = (file.originalname?.match(/\.[a-z0-9]+$/i)?.[0] || '').toLowerCase();
+            if (!['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext)) {
+                ext = '.jpg';
+            }
+            cb(null, `${(0, node_crypto_1.randomUUID)()}${ext}`);
+        },
+    });
+}
 let UsersController = class UsersController {
     constructor(usersService, purchasesService, coursesService, config, walletService, analyticsService, plansService, kycService) {
         this.usersService = usersService;
@@ -62,6 +88,23 @@ let UsersController = class UsersController {
             title: course.title,
             modules: (0, course_mapper_1.mapCourseModulesForCurriculum)(course, mediaBase),
         };
+    }
+    async updateProfile(user, body, avatar) {
+        const patch = {};
+        if (body.name !== undefined)
+            patch.name = body.name;
+        if (body.phone !== undefined)
+            patch.phone = body.phone;
+        if (avatar?.filename) {
+            patch.avatarUrl = `/uploads/avatars/${avatar.filename}`;
+        }
+        if (!Object.keys(patch).length) {
+            throw new common_1.BadRequestException('Nothing to update');
+        }
+        const updated = await this.usersService.updateProfileSelf(user._id.toString(), patch);
+        if (!updated)
+            throw new common_1.NotFoundException('User not found');
+        return { user: updated };
     }
     async getDashboard(req) {
         const userId = req.user._id.toString();
@@ -126,6 +169,29 @@ __decorate([
     __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getCourseCurriculum", null);
+__decorate([
+    (0, common_1.Patch)('me'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('avatar', {
+        storage: avatarDiskStorage(),
+        limits: { fileSize: MAX_AVATAR_BYTES },
+        fileFilter: (_req, file, cb) => {
+            if (!/^image\/(jpeg|png|webp|gif)$/i.test(file.mimetype)) {
+                cb(new common_1.BadRequestException('Only JPEG, PNG, WebP, or GIF images are allowed'), false);
+                return;
+            }
+            cb(null, true);
+        },
+    })),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __param(2, (0, common_1.UploadedFile)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, update_profile_dto_1.UpdateProfileDto, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateProfile", null);
 __decorate([
     (0, common_1.Get)('dashboard'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

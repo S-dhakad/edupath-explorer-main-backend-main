@@ -3,6 +3,7 @@ export type PlanDocument = Plan & Document;
 export declare class Plan {
     name: string;
     price: number;
+    promoPrice?: number;
     features: string[];
     tierId?: string;
     period?: string;

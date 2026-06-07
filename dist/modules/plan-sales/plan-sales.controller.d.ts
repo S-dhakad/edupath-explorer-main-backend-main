@@ -33,6 +33,8 @@ export declare class PlanSalesController {
         attributionOnly: boolean;
         planId: string;
         planName: string;
+        originalPrice: number;
+        promoPrice: any;
         listPrice: number;
         memberPromoDiscountPercent: number;
     }>;
@@ -130,36 +132,6 @@ export declare class PlanSalesController {
         alreadyPaid?: undefined;
     }>;
     purchaseSelf(user: any, dto: PurchasePlanSelfDto): Promise<{
-        alreadyPaid: boolean;
-        sale: import("mongoose").Document<unknown, {}, import("./plan-sale.schema").PlanSaleDocument, {}, {}> & import("./plan-sale.schema").PlanSale & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
-            _id: import("mongoose").Types.ObjectId;
-        }> & {
-            __v: number;
-        };
-        yourPromoCode: string;
-        message: string;
-        plan?: undefined;
-        accountActive?: undefined;
-        promoUnlocked?: undefined;
-        credentialsEmailed?: undefined;
-    } | {
-        sale: import("mongoose").Document<unknown, {}, import("./plan-sale.schema").PlanSaleDocument, {}, {}> & import("./plan-sale.schema").PlanSale & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
-            _id: import("mongoose").Types.ObjectId;
-        }> & {
-            __v: number;
-        };
-        plan: {
-            _id: any;
-            name: any;
-            price: any;
-        };
-        message: string;
-        accountActive: boolean;
-        yourPromoCode: string;
-        promoUnlocked: boolean;
-        credentialsEmailed: boolean;
-        alreadyPaid?: undefined;
-    } | {
         sale: import("./plan-sale.schema").PlanSaleDocument;
         plan: {
             _id: any;
@@ -189,6 +161,36 @@ export declare class PlanSalesController {
         };
         buyerEmail: string;
         message: string;
+    } | {
+        alreadyPaid: boolean;
+        sale: import("mongoose").Document<unknown, {}, import("./plan-sale.schema").PlanSaleDocument, {}, {}> & import("./plan-sale.schema").PlanSale & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }> & {
+            __v: number;
+        };
+        yourPromoCode: string;
+        message: string;
+        plan?: undefined;
+        accountActive?: undefined;
+        promoUnlocked?: undefined;
+        credentialsEmailed?: undefined;
+    } | {
+        sale: import("mongoose").Document<unknown, {}, import("./plan-sale.schema").PlanSaleDocument, {}, {}> & import("./plan-sale.schema").PlanSale & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }> & {
+            __v: number;
+        };
+        plan: {
+            _id: any;
+            name: any;
+            price: any;
+        };
+        message: string;
+        accountActive: boolean;
+        yourPromoCode: string;
+        promoUnlocked: boolean;
+        credentialsEmailed: boolean;
+        alreadyPaid?: undefined;
     }>;
     mine(user: any): Promise<{
         _id: any;
