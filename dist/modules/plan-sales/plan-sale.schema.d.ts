@@ -18,6 +18,8 @@ export declare class PlanSale {
     adminNote: string;
     paymentId: Types.ObjectId | null;
     commissionsDistributed: boolean;
+    isUpgrade: boolean;
+    upgradedFromPlanId: Types.ObjectId | null;
     buyerTempPassword: string;
 }
 export declare const PlanSaleSchema: import("mongoose").Schema<PlanSale, import("mongoose").Model<PlanSale, any, any, any, Document<unknown, any, PlanSale, any, {}> & PlanSale & {

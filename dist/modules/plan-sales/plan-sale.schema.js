@@ -73,6 +73,14 @@ __decorate([
     __metadata("design:type", Boolean)
 ], PlanSale.prototype, "commissionsDistributed", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], PlanSale.prototype, "isUpgrade", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'Plan', default: null }),
+    __metadata("design:type", mongoose_2.Types.ObjectId)
+], PlanSale.prototype, "upgradedFromPlanId", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ select: false }),
     __metadata("design:type", String)
 ], PlanSale.prototype, "buyerTempPassword", void 0);

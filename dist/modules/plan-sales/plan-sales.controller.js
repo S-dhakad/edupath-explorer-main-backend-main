@@ -30,8 +30,11 @@ let PlanSalesController = class PlanSalesController {
     constructor(svc) {
         this.svc = svc;
     }
-    quote(dto) {
-        return this.svc.quoteCheckout(dto.planId, dto.promoCode);
+    quote(user, dto) {
+        return this.svc.quoteCheckout(dto.planId, dto.promoCode, user?._id?.toString());
+    }
+    upgradeOptions(user) {
+        return this.svc.getUpgradeOptions(user._id.toString());
     }
     create(user, dto) {
         return this.svc.initiateAffiliateCheckout(user._id.toString(), dto);
@@ -64,11 +67,21 @@ __decorate([
     (0, common_1.Post)('quote'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiBearerAuth)(),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [quote_plan_dto_1.QuotePlanDto]),
+    __metadata("design:paramtypes", [Object, quote_plan_dto_1.QuotePlanDto]),
     __metadata("design:returntype", void 0)
 ], PlanSalesController.prototype, "quote", null);
+__decorate([
+    (0, common_1.Get)('upgrade-options'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], PlanSalesController.prototype, "upgradeOptions", null);
 __decorate([
     (0, common_1.Post)(),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

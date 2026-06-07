@@ -17,4 +17,6 @@ export declare class PlansService {
     findById(id: string): Promise<Plan | null>;
     resolvePlan(idOrTierId: string): Promise<Plan | null>;
     resolvePlanOrThrow(idOrTierId: string): Promise<Plan>;
+    getTierOrder(): Promise<string[]>;
+    getTierRank(tierId?: string | null): Promise<number>;
 }

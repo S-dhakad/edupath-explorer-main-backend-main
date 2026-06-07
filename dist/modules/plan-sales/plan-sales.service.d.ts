@@ -27,7 +27,48 @@ export declare class PlanSalesService {
     private readonly settingsService;
     private readonly logger;
     constructor(saleModel: Model<PlanSaleDocument>, planModel: Model<PlanDocument>, paymentModel: Model<PaymentDocument>, usersService: UsersService, plansService: PlansService, mail: MailService, config: ConfigService, paymentGateway: PaymentGatewayService, revenueDistribution: RevenueDistributionService, promoCoupons: PromoCouponsService, settingsService: SettingsService);
-    quoteCheckout(planId: string, promoCode?: string): Promise<{
+    quoteCheckout(planId: string, promoCode?: string, buyerUserId?: string): Promise<{
+        tax: number;
+        total: number;
+        commissionPreview: {
+            paidAmount: number;
+            promoOwnerName: string;
+            promoOwnerId: any;
+            uplineId: string;
+            sellerShare: number;
+            parentShare: number;
+            platformShare: number;
+            sellerPercent: number;
+            parentPercent: number;
+            platformPercent: number;
+        };
+        targetPrice: number;
+        upgradeCredit: number;
+        isUpgrade: boolean;
+        samePlan: boolean;
+        isDowngrade: boolean;
+        currentPlan: {
+            id: any;
+            name: string;
+            tierId: any;
+            credit?: undefined;
+        };
+        subtotal: number;
+        discountAmount: number;
+        finalSubtotal: number;
+        promoCode: string | undefined;
+        kind: "admin_coupon" | "member_referral" | null;
+        referrerName: string | undefined;
+        promoOwner: UserDocument | undefined;
+        discountLabel: string | undefined;
+        attributionOnly: boolean;
+        planId: string;
+        planName: string;
+        originalPrice: number;
+        promoPrice: any;
+        listPrice: number;
+        memberPromoDiscountPercent: number;
+    } | {
         tax: number;
         total: number;
         commissionPreview: {
@@ -45,11 +86,22 @@ export declare class PlanSalesService {
         subtotal: number;
         discountAmount: number;
         finalSubtotal: number;
+        targetPrice: number;
+        upgradeCredit: number;
+        isUpgrade: boolean;
+        samePlan: boolean;
+        isDowngrade: boolean;
+        currentPlan: {
+            id: any;
+            name: string;
+            tierId: any;
+            credit: number;
+        };
+        discountLabel: string;
         promoCode: string | undefined;
         kind: "admin_coupon" | "member_referral" | null;
         referrerName: string | undefined;
         promoOwner: UserDocument | undefined;
-        discountLabel: string | undefined;
         attributionOnly: boolean;
         planId: string;
         planName: string;
@@ -58,6 +110,34 @@ export declare class PlanSalesService {
         listPrice: number;
         memberPromoDiscountPercent: number;
     }>;
+    getUpgradeOptions(buyerUserId: string): Promise<{
+        currentPlan: any;
+        upgrades: Array<Record<string, unknown>>;
+        message: string;
+    } | {
+        currentPlan: {
+            planId: any;
+            tierId: any;
+            name: string;
+            price: number;
+            promoPrice: any;
+            credit: number;
+        };
+        upgrades: {
+            planId: any;
+            tierId: any;
+            name: string;
+            price: number;
+            promoPrice: any;
+            targetPrice: number;
+            upgradeCredit: number;
+            upgradeTotal: number;
+            features: string[];
+        }[];
+        message?: undefined;
+    }>;
+    private getPlanCreditForUser;
+    private resolveCheckoutPricing;
     private assertMemberPromoOwnerActive;
     private memberReferralPricing;
     private memberReferralPricingWithSettings;
@@ -74,6 +154,10 @@ export declare class PlanSalesService {
             subtotal: number;
             discountAmount: number;
             finalSubtotal: number;
+            targetPrice: any;
+            upgradeCredit: any;
+            isUpgrade: any;
+            currentPlan: any;
             tax: number;
             total: number;
             discountLabel: string;
@@ -105,6 +189,10 @@ export declare class PlanSalesService {
             subtotal: number;
             discountAmount: number;
             finalSubtotal: number;
+            targetPrice: any;
+            upgradeCredit: any;
+            isUpgrade: any;
+            currentPlan: any;
             tax: number;
             total: number;
             discountLabel: string;
@@ -138,6 +226,7 @@ export declare class PlanSalesService {
         accountActive?: undefined;
         promoUnlocked?: undefined;
         credentialsEmailed?: undefined;
+        buyerCredentials?: undefined;
     } | {
         sale: import("mongoose").Document<unknown, {}, PlanSaleDocument, {}, {}> & PlanSale & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
             _id: Types.ObjectId;
@@ -154,6 +243,12 @@ export declare class PlanSalesService {
         yourPromoCode: string;
         promoUnlocked: boolean;
         credentialsEmailed: boolean;
+        buyerCredentials: {
+            email: string;
+            temporaryPassword: string;
+            promoCode: string;
+            loginUrl: string;
+        };
         alreadyPaid?: undefined;
     }>;
     completeSaleByPaymentId(paymentId: string): Promise<{
@@ -169,6 +264,7 @@ export declare class PlanSalesService {
         accountActive?: undefined;
         promoUnlocked?: undefined;
         credentialsEmailed?: undefined;
+        buyerCredentials?: undefined;
     } | {
         sale: import("mongoose").Document<unknown, {}, PlanSaleDocument, {}, {}> & PlanSale & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
             _id: Types.ObjectId;
@@ -185,6 +281,12 @@ export declare class PlanSalesService {
         yourPromoCode: string;
         promoUnlocked: boolean;
         credentialsEmailed: boolean;
+        buyerCredentials: {
+            email: string;
+            temporaryPassword: string;
+            promoCode: string;
+            loginUrl: string;
+        };
         alreadyPaid?: undefined;
     }>;
     create(sellerId: string, dto: CreatePlanSaleDto): Promise<{
@@ -198,6 +300,10 @@ export declare class PlanSalesService {
             subtotal: number;
             discountAmount: number;
             finalSubtotal: number;
+            targetPrice: any;
+            upgradeCredit: any;
+            isUpgrade: any;
+            currentPlan: any;
             tax: number;
             total: number;
             discountLabel: string;
@@ -229,6 +335,10 @@ export declare class PlanSalesService {
             subtotal: number;
             discountAmount: number;
             finalSubtotal: number;
+            targetPrice: any;
+            upgradeCredit: any;
+            isUpgrade: any;
+            currentPlan: any;
             tax: number;
             total: number;
             discountLabel: string;
@@ -261,6 +371,7 @@ export declare class PlanSalesService {
         accountActive?: undefined;
         promoUnlocked?: undefined;
         credentialsEmailed?: undefined;
+        buyerCredentials?: undefined;
     } | {
         sale: import("mongoose").Document<unknown, {}, PlanSaleDocument, {}, {}> & PlanSale & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
             _id: Types.ObjectId;
@@ -277,6 +388,12 @@ export declare class PlanSalesService {
         yourPromoCode: string;
         promoUnlocked: boolean;
         credentialsEmailed: boolean;
+        buyerCredentials: {
+            email: string;
+            temporaryPassword: string;
+            promoCode: string;
+            loginUrl: string;
+        };
         alreadyPaid?: undefined;
     }>;
     private checkoutResponse;
@@ -335,6 +452,7 @@ export declare class PlanSalesService {
         accountActive?: undefined;
         promoUnlocked?: undefined;
         credentialsEmailed?: undefined;
+        buyerCredentials?: undefined;
     } | {
         sale: import("mongoose").Document<unknown, {}, PlanSaleDocument, {}, {}> & PlanSale & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
             _id: Types.ObjectId;
@@ -351,6 +469,12 @@ export declare class PlanSalesService {
         yourPromoCode: string;
         promoUnlocked: boolean;
         credentialsEmailed: boolean;
+        buyerCredentials: {
+            email: string;
+            temporaryPassword: string;
+            promoCode: string;
+            loginUrl: string;
+        };
         alreadyPaid?: undefined;
     }>;
 }

@@ -133,4 +133,19 @@ export class PlansService {
     if (!plan) throw new NotFoundException('Plan not found');
     return plan;
   }
+
+  /** Tier order from admin landing pricing (low → high). */
+  async getTierOrder(): Promise<string[]> {
+    const doc = await this.landingPricingModel.findOne({ key: 'default' }).lean().exec();
+    const tiers: LandingPricingTier[] =
+      doc?.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
+    return tiers.map((t) => t.id);
+  }
+
+  async getTierRank(tierId?: string | null): Promise<number> {
+    if (!tierId) return -1;
+    const order = await this.getTierOrder();
+    const idx = order.indexOf(tierId);
+    return idx >= 0 ? idx : order.length;
+  }
 }

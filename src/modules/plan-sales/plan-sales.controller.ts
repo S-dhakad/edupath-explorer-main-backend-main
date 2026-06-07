@@ -20,8 +20,15 @@ export class PlanSalesController {
   @Post('quote')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  quote(@Body() dto: QuotePlanDto) {
-    return this.svc.quoteCheckout(dto.planId, dto.promoCode);
+  quote(@CurrentUser() user: any, @Body() dto: QuotePlanDto) {
+    return this.svc.quoteCheckout(dto.planId, dto.promoCode, user?._id?.toString());
+  }
+
+  @Get('upgrade-options')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  upgradeOptions(@CurrentUser() user: any) {
+    return this.svc.getUpgradeOptions(user._id.toString());
   }
 
   @Post()

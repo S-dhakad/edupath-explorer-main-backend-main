@@ -49,6 +49,13 @@ export class PlanSale {
   @Prop({ default: false })
   commissionsDistributed: boolean;
 
+  /** True when buyer moved from a lower membership tier. */
+  @Prop({ default: false })
+  isUpgrade: boolean;
+
+  @Prop({ type: Types.ObjectId, ref: 'Plan', default: null })
+  upgradedFromPlanId: Types.ObjectId | null;
+
   /** Plain temporary password for seller handoff (not the hashed user password). */
   @Prop({ select: false })
   buyerTempPassword: string;

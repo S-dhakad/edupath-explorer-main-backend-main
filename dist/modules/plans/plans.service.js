@@ -117,6 +117,18 @@ let PlansService = class PlansService {
             throw new common_1.NotFoundException('Plan not found');
         return plan;
     }
+    async getTierOrder() {
+        const doc = await this.landingPricingModel.findOne({ key: 'default' }).lean().exec();
+        const tiers = doc?.tiers?.length ? doc.tiers : public_defaults_1.DEFAULT_LANDING_PRICING_TIERS;
+        return tiers.map((t) => t.id);
+    }
+    async getTierRank(tierId) {
+        if (!tierId)
+            return -1;
+        const order = await this.getTierOrder();
+        const idx = order.indexOf(tierId);
+        return idx >= 0 ? idx : order.length;
+    }
 };
 exports.PlansService = PlansService;
 exports.PlansService = PlansService = __decorate([

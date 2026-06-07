@@ -45,11 +45,11 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         this.settingsService = settingsService;
         this.logger = new common_1.Logger(PlanSalesService_1.name);
     }
-    async quoteCheckout(planId, promoCode) {
+    async quoteCheckout(planId, promoCode, buyerUserId) {
         const plan = await this.planModel.findById(planId).lean();
         if (!plan)
             throw new common_1.NotFoundException('Plan not found');
-        const pricing = await this.resolvePlanPricing(plan, promoCode);
+        const pricing = await this.resolveCheckoutPricing(plan, promoCode, buyerUserId);
         const tax = 0;
         const settings = await this.settingsService.getGlobal();
         const commissionPreview = this.buildCommissionPreview(pricing.finalSubtotal, pricing.promoOwner, settings.couponOwnerPercent, settings.directParentPercent, settings.platformPercent);
@@ -64,6 +64,158 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             tax,
             total: pricing.finalSubtotal,
             commissionPreview,
+        };
+    }
+    async getUpgradeOptions(buyerUserId) {
+        const buyer = await this.usersService.findById(buyerUserId);
+        if (!buyer?.accountActive || !buyer.planId) {
+            return {
+                currentPlan: null,
+                upgrades: [],
+                message: 'No active membership plan. Purchase a plan first.',
+            };
+        }
+        const currentPlan = await this.plansService.findById(buyer.planId.toString());
+        if (!currentPlan) {
+            return { currentPlan: null, upgrades: [], message: 'Current plan not found.' };
+        }
+        const currentRank = await this.plansService.getTierRank(currentPlan.tierId);
+        const credit = await this.getPlanCreditForUser(buyerUserId, currentPlan);
+        const activePlans = await this.plansService.findActive();
+        const upgrades = await Promise.all(activePlans.map(async (target) => {
+            const targetRank = await this.plansService.getTierRank(target.tierId);
+            if (targetRank <= currentRank)
+                return null;
+            const pricing = await this.resolveCheckoutPricing(target, undefined, buyerUserId);
+            return {
+                planId: target._id.toString(),
+                tierId: target.tierId,
+                name: target.name,
+                price: target.price,
+                promoPrice: target.promoPrice ?? null,
+                targetPrice: pricing.targetPrice ?? pricing.finalSubtotal,
+                upgradeCredit: pricing.upgradeCredit ?? credit,
+                upgradeTotal: pricing.finalSubtotal,
+                features: target.features ?? [],
+            };
+        }));
+        return {
+            currentPlan: {
+                planId: currentPlan._id.toString(),
+                tierId: currentPlan.tierId,
+                name: currentPlan.name,
+                price: currentPlan.price,
+                promoPrice: currentPlan.promoPrice ?? null,
+                credit,
+            },
+            upgrades: upgrades.filter(Boolean),
+        };
+    }
+    async getPlanCreditForUser(userId, currentPlan) {
+        const paidSale = await this.saleModel
+            .findOne({
+            buyerUserId: new mongoose_2.Types.ObjectId(userId),
+            planId: currentPlan._id,
+            status: plan_sale_schema_1.PlanSaleStatus.PAID,
+        })
+            .sort({ createdAt: -1 })
+            .lean();
+        if (paidSale?.paymentId) {
+            const pay = await this.paymentModel.findById(paidSale.paymentId).select('amount').lean();
+            if (pay?.amount != null && pay.amount > 0)
+                return pay.amount;
+        }
+        if (currentPlan.promoPrice != null && currentPlan.promoPrice < currentPlan.price) {
+            return currentPlan.promoPrice;
+        }
+        return currentPlan.price;
+    }
+    async resolveCheckoutPricing(targetPlan, promoCode, buyerUserId) {
+        const basePricing = await this.resolvePlanPricing(targetPlan, promoCode);
+        const targetPrice = basePricing.finalSubtotal;
+        if (!buyerUserId) {
+            return {
+                ...basePricing,
+                targetPrice,
+                upgradeCredit: 0,
+                isUpgrade: false,
+                samePlan: false,
+                isDowngrade: false,
+                currentPlan: null,
+            };
+        }
+        const buyer = await this.usersService.findById(buyerUserId);
+        if (!buyer?.accountActive || !buyer.planId) {
+            return {
+                ...basePricing,
+                targetPrice,
+                upgradeCredit: 0,
+                isUpgrade: false,
+                samePlan: false,
+                isDowngrade: false,
+                currentPlan: null,
+            };
+        }
+        const currentPlan = await this.plansService.findById(buyer.planId.toString());
+        if (!currentPlan) {
+            return {
+                ...basePricing,
+                targetPrice,
+                upgradeCredit: 0,
+                isUpgrade: false,
+                samePlan: false,
+                isDowngrade: false,
+                currentPlan: null,
+            };
+        }
+        const currentOid = currentPlan._id?.toString();
+        const targetOid = targetPlan._id?.toString();
+        if (currentOid && targetOid && currentOid === targetOid) {
+            return {
+                ...basePricing,
+                targetPrice,
+                upgradeCredit: 0,
+                isUpgrade: false,
+                samePlan: true,
+                isDowngrade: false,
+                currentPlan: { id: currentOid, name: currentPlan.name, tierId: currentPlan.tierId },
+            };
+        }
+        const currentRank = await this.plansService.getTierRank(currentPlan.tierId);
+        const targetRank = await this.plansService.getTierRank(targetPlan.tierId);
+        if (targetRank <= currentRank) {
+            return {
+                ...basePricing,
+                targetPrice,
+                upgradeCredit: 0,
+                isUpgrade: false,
+                samePlan: false,
+                isDowngrade: true,
+                currentPlan: { id: currentOid, name: currentPlan.name, tierId: currentPlan.tierId },
+            };
+        }
+        const upgradeCredit = await this.getPlanCreditForUser(buyerUserId, currentPlan);
+        const finalSubtotal = Math.max(0, targetPrice - upgradeCredit);
+        const upgradeLabel = `Upgrade credit (${currentPlan.name})`;
+        return {
+            ...basePricing,
+            subtotal: targetPlan.price,
+            discountAmount: basePricing.discountAmount + upgradeCredit,
+            finalSubtotal,
+            targetPrice,
+            upgradeCredit,
+            isUpgrade: true,
+            samePlan: false,
+            isDowngrade: false,
+            currentPlan: {
+                id: currentOid,
+                name: currentPlan.name,
+                tierId: currentPlan.tierId,
+                credit: upgradeCredit,
+            },
+            discountLabel: basePricing.discountLabel
+                ? `${basePricing.discountLabel} · ${upgradeLabel}`
+                : upgradeLabel,
         };
     }
     assertMemberPromoOwnerActive(owner) {
@@ -244,6 +396,13 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         if (existingPaid) {
             throw new common_1.ConflictException('You already have this plan active.');
         }
+        const pricing = await this.resolveCheckoutPricing(plan, promo, buyerUserId);
+        if (pricing.samePlan) {
+            throw new common_1.ConflictException('You already have this plan active.');
+        }
+        if (pricing.isDowngrade) {
+            throw new common_1.BadRequestException('Downgrades are not supported. Choose a higher plan from Upgrade Plan.');
+        }
         const fullName = dto.fullName.trim();
         const email = buyer.email;
         const age = dto.age;
@@ -264,6 +423,8 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                 contactNumber,
                 promoCode: promo,
                 status: plan_sale_schema_1.PlanSaleStatus.PENDING_PAYMENT,
+                isUpgrade: pricing.isUpgrade,
+                upgradedFromPlanId: pricing.isUpgrade ? buyer.planId : null,
             });
         }
         else {
@@ -273,9 +434,10 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             sale.contactNumber = contactNumber;
             sale.promoCode = promo;
             sale.sellerId = sellerOid;
+            sale.isUpgrade = pricing.isUpgrade;
+            sale.upgradedFromPlanId = pricing.isUpgrade ? buyer.planId : null;
             await sale.save();
         }
-        const pricing = await this.resolvePlanPricing(plan, promo);
         const paymentOrder = await this.paymentGateway.createRazorpayLikeOrder(buyerUserId, pricing.finalSubtotal, { planId: planOid.toString(), couponCode: promo });
         sale.paymentId = paymentOrder.payment._id;
         await sale.save();
@@ -375,6 +537,14 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             yourPromoCode,
             promoUnlocked: true,
             credentialsEmailed: true,
+            buyerCredentials: loginPassword
+                ? {
+                    email: sale.email,
+                    temporaryPassword: loginPassword,
+                    promoCode: yourPromoCode,
+                    loginUrl: this.config.get('frontendUrl') || 'http://localhost:5173',
+                }
+                : undefined,
         };
     }
     async create(sellerId, dto) {
@@ -405,6 +575,10 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                     subtotal: pricing.subtotal,
                     discountAmount: pricing.discountAmount,
                     finalSubtotal: pricing.finalSubtotal,
+                    targetPrice: pricing.targetPrice,
+                    upgradeCredit: pricing.upgradeCredit ?? 0,
+                    isUpgrade: pricing.isUpgrade ?? false,
+                    currentPlan: pricing.currentPlan ?? null,
                     tax: 0,
                     total: pricing.finalSubtotal,
                     discountLabel: pricing.discountLabel,
@@ -465,7 +639,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                     phone: s.buyerUserId.phone,
                 }
                 : null,
-            password: s.status === plan_sale_schema_1.PlanSaleStatus.PAID ? null : s.buyerTempPassword || null,
+            password: s.buyerTempPassword || null,
             createdAt: s.createdAt,
             updatedAt: s.updatedAt,
             source: s.sellerId?.toString() === sellerId ? 'direct_sale' : 'promo_code',
