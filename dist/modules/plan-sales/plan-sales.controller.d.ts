@@ -94,6 +94,7 @@ export declare class PlanSalesController {
         currentPlan: any;
         upgrades: Array<Record<string, unknown>>;
         message: string;
+        uplinePromoCode?: undefined;
     } | {
         currentPlan: {
             planId: any;
@@ -109,11 +110,12 @@ export declare class PlanSalesController {
             name: string;
             price: number;
             promoPrice: any;
-            targetPrice: number;
+            targetPrice: any;
             upgradeCredit: number;
             upgradeTotal: number;
             features: string[];
         }[];
+        uplinePromoCode: any;
         message?: undefined;
     }>;
     create(user: any, dto: CreatePlanSaleDto): Promise<{

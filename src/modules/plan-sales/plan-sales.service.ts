@@ -95,24 +95,36 @@ export class PlanSalesService {
     const credit = await this.getPlanCreditForUser(buyerUserId, currentPlan as any);
     const activePlans = await this.plansService.findActive();
 
+    let uplinePromoCode = null;
+    if (buyer.referredBy) {
+      const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
+      if (uplineUser) {
+        uplinePromoCode = (uplineUser as any).referralCode || null;
+      }
+    }
+
     const upgrades = await Promise.all(
       activePlans.map(async (target) => {
         const targetRank = await this.plansService.getTierRank((target as any).tierId);
         if (targetRank <= currentRank) return null;
-        const pricing = await this.resolveCheckoutPricing(target as any, undefined, buyerUserId);
+        
+        const baseTargetPrice = (target as any).promoPrice ?? target.price;
+        const upgradeTotal = Math.max(0, baseTargetPrice - credit);
         return {
           planId: (target as any)._id.toString(),
           tierId: (target as any).tierId,
           name: target.name,
           price: target.price,
           promoPrice: (target as any).promoPrice ?? null,
-          targetPrice: pricing.targetPrice ?? pricing.finalSubtotal,
-          upgradeCredit: pricing.upgradeCredit ?? credit,
-          upgradeTotal: pricing.finalSubtotal,
+          targetPrice: baseTargetPrice,
+          upgradeCredit: credit,
+          upgradeTotal: upgradeTotal,
           features: target.features ?? [],
         };
       }),
     );
+
+
 
     return {
       currentPlan: {
@@ -124,6 +136,7 @@ export class PlanSalesService {
         credit,
       },
       upgrades: upgrades.filter(Boolean),
+      uplinePromoCode,
     };
   }
 
@@ -466,11 +479,16 @@ export class PlanSalesService {
       ? (buyer.referredBy as Types.ObjectId)
       : new Types.ObjectId(this.config.get<string>('platform.userId') || '000000000000000000000000');
 
-    const promo = dto.promoCode?.trim()?.toUpperCase();
+    let promo = dto.promoCode?.trim()?.toUpperCase();
     if (promo) {
       const validated = await this.usersService.validateReferralCodeForCheckout(promo, buyerUserId);
       const owner = await this.usersService.findByReferralCode(validated.code);
       sellerOid = (owner as any)._id;
+    } else if (buyer.referredBy) {
+      const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
+      if (uplineUser && (uplineUser as any).referralCode) {
+        promo = (uplineUser as any).referralCode;
+      }
     }
 
     const existingPaid = await this.saleModel

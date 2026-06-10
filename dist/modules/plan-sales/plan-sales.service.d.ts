@@ -114,6 +114,7 @@ export declare class PlanSalesService {
         currentPlan: any;
         upgrades: Array<Record<string, unknown>>;
         message: string;
+        uplinePromoCode?: undefined;
     } | {
         currentPlan: {
             planId: any;
@@ -129,11 +130,12 @@ export declare class PlanSalesService {
             name: string;
             price: number;
             promoPrice: any;
-            targetPrice: number;
+            targetPrice: any;
             upgradeCredit: number;
             upgradeTotal: number;
             features: string[];
         }[];
+        uplinePromoCode: any;
         message?: undefined;
     }>;
     private getPlanCreditForUser;

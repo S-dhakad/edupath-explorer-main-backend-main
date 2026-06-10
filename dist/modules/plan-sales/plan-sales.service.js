@@ -82,20 +82,28 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         const currentRank = await this.plansService.getTierRank(currentPlan.tierId);
         const credit = await this.getPlanCreditForUser(buyerUserId, currentPlan);
         const activePlans = await this.plansService.findActive();
+        let uplinePromoCode = null;
+        if (buyer.referredBy) {
+            const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
+            if (uplineUser) {
+                uplinePromoCode = uplineUser.referralCode || null;
+            }
+        }
         const upgrades = await Promise.all(activePlans.map(async (target) => {
             const targetRank = await this.plansService.getTierRank(target.tierId);
             if (targetRank <= currentRank)
                 return null;
-            const pricing = await this.resolveCheckoutPricing(target, undefined, buyerUserId);
+            const baseTargetPrice = target.promoPrice ?? target.price;
+            const upgradeTotal = Math.max(0, baseTargetPrice - credit);
             return {
                 planId: target._id.toString(),
                 tierId: target.tierId,
                 name: target.name,
                 price: target.price,
                 promoPrice: target.promoPrice ?? null,
-                targetPrice: pricing.targetPrice ?? pricing.finalSubtotal,
-                upgradeCredit: pricing.upgradeCredit ?? credit,
-                upgradeTotal: pricing.finalSubtotal,
+                targetPrice: baseTargetPrice,
+                upgradeCredit: credit,
+                upgradeTotal: upgradeTotal,
                 features: target.features ?? [],
             };
         }));
@@ -109,6 +117,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                 credit,
             },
             upgrades: upgrades.filter(Boolean),
+            uplinePromoCode,
         };
     }
     async getPlanCreditForUser(userId, currentPlan) {
@@ -384,11 +393,17 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         let sellerOid = buyer.referredBy
             ? buyer.referredBy
             : new mongoose_2.Types.ObjectId(this.config.get('platform.userId') || '000000000000000000000000');
-        const promo = dto.promoCode?.trim()?.toUpperCase();
+        let promo = dto.promoCode?.trim()?.toUpperCase();
         if (promo) {
             const validated = await this.usersService.validateReferralCodeForCheckout(promo, buyerUserId);
             const owner = await this.usersService.findByReferralCode(validated.code);
             sellerOid = owner._id;
+        }
+        else if (buyer.referredBy) {
+            const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
+            if (uplineUser && uplineUser.referralCode) {
+                promo = uplineUser.referralCode;
+            }
         }
         const existingPaid = await this.saleModel
             .findOne({ buyerUserId: buyerOid, planId: planOid, status: plan_sale_schema_1.PlanSaleStatus.PAID })
