@@ -134,11 +134,16 @@ export class RevenueDistributionService {
     this.logger.log(`Distributed commissions for purchase ${purchaseId}`);
   }
 
-  /** Plan membership sale: 70% seller (promo owner), 10% parent, 20% platform. */
+  /**
+   * Plan membership sale: 70% seller (promo owner), 10% parent, 20% platform.
+   * `commissionBase` caps the split pool when a member sells a higher-tier plan than their own.
+   * Any amount paid above `commissionBase` is credited to the platform share.
+   */
   async distributePlanSale(
     sale: PlanSaleDocument,
-    amount: number,
+    paidAmount: number,
     seller: UserDocument,
+    commissionBase?: number,
   ): Promise<void> {
     if (sale.commissionsDistributed) return;
 
@@ -147,9 +152,11 @@ export class RevenueDistributionService {
     const platPct = settings.platformPercent;
     const parentPct = settings.directParentPercent;
 
-    const ownerAmount = round2((amount * ownerPct) / 100);
-    let platformAmount = round2((amount * platPct) / 100);
-    let parentAmount = round2((amount * parentPct) / 100);
+    const pool = commissionBase != null && commissionBase > 0 ? commissionBase : paidAmount;
+    const ownerAmount = round2((pool * ownerPct) / 100);
+    let platformAmount = round2((pool * platPct) / 100);
+    let parentAmount = round2((pool * parentPct) / 100);
+    platformAmount = round2(platformAmount + Math.max(0, paidAmount - pool));
 
     const parentId = seller.referredBy ? (seller.referredBy as Types.ObjectId).toString() : null;
     if (!parentId) {

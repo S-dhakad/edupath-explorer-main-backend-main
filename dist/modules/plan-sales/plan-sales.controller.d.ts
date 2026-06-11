@@ -12,6 +12,8 @@ export declare class PlanSalesController {
         total: number;
         commissionPreview: {
             paidAmount: number;
+            commissionBase: number;
+            cappedToSellerPlan: boolean;
             promoOwnerName: string;
             promoOwnerId: any;
             uplineId: string;
@@ -31,7 +33,6 @@ export declare class PlanSalesController {
             id: any;
             name: string;
             tierId: any;
-            credit?: undefined;
         };
         subtotal: number;
         discountAmount: number;
@@ -41,47 +42,6 @@ export declare class PlanSalesController {
         referrerName: string | undefined;
         promoOwner: import("../users/user.schema").UserDocument | undefined;
         discountLabel: string | undefined;
-        attributionOnly: boolean;
-        planId: string;
-        planName: string;
-        originalPrice: number;
-        promoPrice: any;
-        listPrice: number;
-        memberPromoDiscountPercent: number;
-    } | {
-        tax: number;
-        total: number;
-        commissionPreview: {
-            paidAmount: number;
-            promoOwnerName: string;
-            promoOwnerId: any;
-            uplineId: string;
-            sellerShare: number;
-            parentShare: number;
-            platformShare: number;
-            sellerPercent: number;
-            parentPercent: number;
-            platformPercent: number;
-        };
-        subtotal: number;
-        discountAmount: number;
-        finalSubtotal: number;
-        targetPrice: number;
-        upgradeCredit: number;
-        isUpgrade: boolean;
-        samePlan: boolean;
-        isDowngrade: boolean;
-        currentPlan: {
-            id: any;
-            name: string;
-            tierId: any;
-            credit: number;
-        };
-        discountLabel: string;
-        promoCode: string | undefined;
-        kind: "admin_coupon" | "member_referral" | null;
-        referrerName: string | undefined;
-        promoOwner: import("../users/user.schema").UserDocument | undefined;
         attributionOnly: boolean;
         planId: string;
         planName: string;
@@ -112,7 +72,7 @@ export declare class PlanSalesController {
             promoPrice: any;
             targetPrice: any;
             upgradeCredit: number;
-            upgradeTotal: number;
+            upgradeTotal: any;
             features: string[];
         }[];
         uplinePromoCode: any;

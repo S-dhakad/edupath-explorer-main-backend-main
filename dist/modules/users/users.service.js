@@ -152,6 +152,13 @@ let UsersService = class UsersService {
     async findById(id) {
         return this.userModel.findById(id).select('-password').exec();
     }
+    async findByIdWithPassword(id) {
+        return this.userModel.findById(id).select('+password').exec();
+    }
+    async updatePasswordHash(userId, newPassword) {
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await this.userModel.findByIdAndUpdate(userId, { password: hashed }).exec();
+    }
     async updateProfileSelf(userId, data) {
         const patch = {};
         if (data.name !== undefined) {

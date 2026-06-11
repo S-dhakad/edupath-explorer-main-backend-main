@@ -3,8 +3,7 @@ export declare class PurchasePlanSelfDto {
     paymentId?: string;
     promoCode?: string;
     fullName: string;
-    age: number;
-    dateOfBirth: string;
-    contactNumber: string;
+    dateOfBirth?: string;
+    contactNumber?: string;
     address?: string;
 }

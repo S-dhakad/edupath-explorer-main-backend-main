@@ -29,6 +29,8 @@ export declare class UsersService {
     }>;
     ensureReferralCode(userId: string): Promise<string>;
     findById(id: string): Promise<UserDocument | null>;
+    findByIdWithPassword(id: string): Promise<UserDocument | null>;
+    updatePasswordHash(userId: string, newPassword: string): Promise<void>;
     updateProfileSelf(userId: string, data: {
         name?: string;
         phone?: string;

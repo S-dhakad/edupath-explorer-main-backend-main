@@ -52,7 +52,11 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         const pricing = await this.resolveCheckoutPricing(plan, promoCode, buyerUserId);
         const tax = 0;
         const settings = await this.settingsService.getGlobal();
-        const commissionPreview = this.buildCommissionPreview(pricing.finalSubtotal, pricing.promoOwner, settings.couponOwnerPercent, settings.directParentPercent, settings.platformPercent);
+        let commissionBase = pricing.finalSubtotal;
+        if (pricing.promoOwner) {
+            commissionBase = await this.resolvePlanSaleCommissionBase(pricing.promoOwner, plan);
+        }
+        const commissionPreview = this.buildCommissionPreview(pricing.finalSubtotal, commissionBase, pricing.promoOwner, settings.couponOwnerPercent, settings.directParentPercent, settings.platformPercent);
         return {
             planId,
             planName: plan.name,
@@ -94,7 +98,6 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             if (targetRank <= currentRank)
                 return null;
             const baseTargetPrice = target.promoPrice ?? target.price;
-            const upgradeTotal = Math.max(0, baseTargetPrice - credit);
             return {
                 planId: target._id.toString(),
                 tierId: target.tierId,
@@ -103,7 +106,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                 promoPrice: target.promoPrice ?? null,
                 targetPrice: baseTargetPrice,
                 upgradeCredit: credit,
-                upgradeTotal: upgradeTotal,
+                upgradeTotal: baseTargetPrice,
                 features: target.features ?? [],
             };
         }));
@@ -203,16 +206,30 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                 currentPlan: { id: currentOid, name: currentPlan.name, tierId: currentPlan.tierId },
             };
         }
-        const upgradeCredit = await this.getPlanCreditForUser(buyerUserId, currentPlan);
-        const finalSubtotal = Math.max(0, targetPrice - upgradeCredit);
-        const upgradeLabel = `Upgrade credit (${currentPlan.name})`;
+        const hasReferralPromo = Boolean(promoCode?.trim());
+        const listPrice = targetPlan.price;
+        let upgradeTargetPrice = basePricing.finalSubtotal;
+        let promoDiscount = basePricing.discountAmount;
+        if (!hasReferralPromo) {
+            const planPromo = targetPlan.promoPrice != null && targetPlan.promoPrice < listPrice
+                ? targetPlan.promoPrice
+                : listPrice;
+            upgradeTargetPrice = planPromo;
+            promoDiscount = Math.max(0, listPrice - planPromo);
+        }
+        const finalSubtotal = upgradeTargetPrice;
+        const promoLabel = hasReferralPromo
+            ? basePricing.discountLabel
+            : promoDiscount > 0
+                ? `Member promo price ₹${upgradeTargetPrice.toLocaleString('en-IN')}`
+                : undefined;
         return {
             ...basePricing,
-            subtotal: targetPlan.price,
-            discountAmount: basePricing.discountAmount + upgradeCredit,
+            subtotal: listPrice,
+            discountAmount: promoDiscount,
             finalSubtotal,
-            targetPrice,
-            upgradeCredit,
+            targetPrice: upgradeTargetPrice,
+            upgradeCredit: 0,
             isUpgrade: true,
             samePlan: false,
             isDowngrade: false,
@@ -220,11 +237,8 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                 id: currentOid,
                 name: currentPlan.name,
                 tierId: currentPlan.tierId,
-                credit: upgradeCredit,
             },
-            discountLabel: basePricing.discountLabel
-                ? `${basePricing.discountLabel} · ${upgradeLabel}`
-                : upgradeLabel,
+            discountLabel: promoLabel,
         };
     }
     assertMemberPromoOwnerActive(owner) {
@@ -276,18 +290,43 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             attributionOnly: false,
         };
     }
-    buildCommissionPreview(paidAmount, promoOwner, ownerPct, parentPct, platPct) {
-        const base = paidAmount;
-        const sellerShare = round2((base * ownerPct) / 100);
-        let platformShare = round2((base * platPct) / 100);
-        let parentShare = round2((base * parentPct) / 100);
+    planEffectivePrice(plan) {
+        if (plan.promoPrice != null && plan.promoPrice < plan.price)
+            return plan.promoPrice;
+        return plan.price;
+    }
+    async resolvePlanSaleCommissionBase(seller, soldPlan) {
+        const soldBase = this.planEffectivePrice(soldPlan);
+        if (!seller.accountActive || !seller.planId) {
+            return soldBase;
+        }
+        const sellerPlan = await this.plansService.findById(seller.planId.toString());
+        if (!sellerPlan)
+            return soldBase;
+        const sellerBase = this.planEffectivePrice(sellerPlan);
+        const sellerRank = await this.plansService.getTierRank(sellerPlan.tierId);
+        const soldRank = await this.plansService.getTierRank(soldPlan.tierId);
+        if (soldRank > sellerRank) {
+            return sellerBase;
+        }
+        return soldBase;
+    }
+    buildCommissionPreview(paidAmount, commissionBase, promoOwner, ownerPct, parentPct, platPct) {
+        const pool = commissionBase > 0 ? commissionBase : paidAmount;
+        const sellerShare = round2((pool * ownerPct) / 100);
+        let platformShare = round2((pool * platPct) / 100);
+        let parentShare = round2((pool * parentPct) / 100);
+        const surplus = Math.max(0, paidAmount - pool);
+        platformShare = round2(platformShare + surplus);
         const parentId = promoOwner?.referredBy ? promoOwner.referredBy.toString() : null;
         if (!parentId) {
             platformShare = round2(platformShare + parentShare);
             parentShare = 0;
         }
         return {
-            paidAmount: base,
+            paidAmount,
+            commissionBase: pool,
+            cappedToSellerPlan: pool < paidAmount,
             promoOwnerName: promoOwner?.name,
             promoOwnerId: promoOwner ? promoOwner._id?.toString() : null,
             uplineId: parentId,
@@ -360,7 +399,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             password: tempPassword,
             sellerId: sellerOid.toString(),
             planId: dto.planId,
-            age: dto.age,
+            age: 0,
             dateOfBirth: new Date(dto.dateOfBirth),
             phone: dto.contactNumber,
         });
@@ -370,7 +409,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             planId: new mongoose_2.Types.ObjectId(dto.planId),
             fullName: dto.fullName.trim(),
             email,
-            age: dto.age,
+            age: 0,
             dateOfBirth: new Date(dto.dateOfBirth),
             contactNumber: dto.contactNumber,
             promoCode: promo,
@@ -420,9 +459,9 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         }
         const fullName = dto.fullName.trim();
         const email = buyer.email;
-        const age = dto.age;
-        const dateOfBirth = new Date(dto.dateOfBirth);
-        const contactNumber = dto.contactNumber.trim();
+        const age = buyer.age ?? 0;
+        const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : (buyer.dateOfBirth ?? new Date());
+        const contactNumber = (dto.contactNumber || buyer.phone || '').trim();
         let sale = await this.saleModel
             .findOne({ buyerUserId: buyerOid, planId: planOid, status: plan_sale_schema_1.PlanSaleStatus.PENDING_PAYMENT })
             .exec();
@@ -490,7 +529,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         const sale = await this.saleModel
             .findOne({ paymentId: new mongoose_2.Types.ObjectId(paymentId) })
             .select('+buyerTempPassword')
-            .populate('planId', 'name price')
+            .populate('planId', 'name price promoPrice tierId')
             .exec();
         if (!sale)
             throw new common_1.NotFoundException('Plan sale not found for this payment');
@@ -535,7 +574,9 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         const seller = await this.usersService.findById(sale.sellerId.toString());
         if (seller && !sale.commissionsDistributed) {
             try {
-                await this.revenueDistribution.distributePlanSale(sale, pay.amount, seller);
+                const soldPlan = plan;
+                const commissionBase = await this.resolvePlanSaleCommissionBase(seller, soldPlan);
+                await this.revenueDistribution.distributePlanSale(sale, pay.amount, seller, commissionBase);
             }
             catch (err) {
                 this.logger.warn(`Plan sale ${sale._id} activated but commission split failed: ${err.message}`);
@@ -623,6 +664,23 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             or.push({ promoCode: code });
         return { $or: or };
     }
+    dedupeSalesByBuyer(items) {
+        const seen = new Set();
+        const out = [];
+        for (const s of items) {
+            const buyerId = s.buyerUserId && typeof s.buyerUserId === 'object' && '_id' in s.buyerUserId
+                ? String(s.buyerUserId._id)
+                : s.buyerUserId
+                    ? String(s.buyerUserId)
+                    : null;
+            const key = buyerId ?? s.email?.trim().toLowerCase();
+            if (!key || seen.has(key))
+                continue;
+            seen.add(key);
+            out.push(s);
+        }
+        return out;
+    }
     async listMine(sellerId) {
         const seller = await this.usersService.findById(sellerId);
         const items = await this.saleModel
@@ -632,7 +690,8 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             .populate('planId', 'name price')
             .populate('buyerUserId', 'name email accountActive phone')
             .lean();
-        return items.map((s) => ({
+        const uniqueItems = this.dedupeSalesByBuyer(items);
+        return uniqueItems.map((s) => ({
             _id: s._id,
             fullName: s.fullName,
             email: s.email,

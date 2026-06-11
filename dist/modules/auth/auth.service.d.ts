@@ -26,4 +26,13 @@ export declare class AuthService {
     logout(userId: string): Promise<{
         ok: boolean;
     }>;
+    changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{
+        ok: boolean;
+        message: string;
+    }>;
+    forgotPassword(email: string, currentPassword: string, newPassword: string): Promise<{
+        ok: boolean;
+        message: string;
+    }>;
+    private applyPasswordChange;
 }

@@ -10,7 +10,9 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PurchasePlanSelfDto = void 0;
+const class_transformer_1 = require("class-transformer");
 const class_validator_1 = require("class-validator");
+const emptyToUndefined = ({ value }) => value === '' || value === null ? undefined : value;
 class PurchasePlanSelfDto {
 }
 exports.PurchasePlanSelfDto = PurchasePlanSelfDto;
@@ -34,15 +36,14 @@ __decorate([
     __metadata("design:type", String)
 ], PurchasePlanSelfDto.prototype, "fullName", void 0);
 __decorate([
-    (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
-    __metadata("design:type", Number)
-], PurchasePlanSelfDto.prototype, "age", void 0);
-__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(emptyToUndefined),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], PurchasePlanSelfDto.prototype, "dateOfBirth", void 0);
 __decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Transform)(emptyToUndefined),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(8),
     __metadata("design:type", String)

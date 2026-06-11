@@ -1,5 +1,5 @@
 import { AuthService } from './auth.service';
-import { SignupDto, RefreshDto } from './dto/auth.dto';
+import { ChangePasswordDto, ForgotPasswordDto, SignupDto, RefreshDto } from './dto/auth.dto';
 export declare class AuthController {
     private authService;
     constructor(authService: AuthService);
@@ -22,4 +22,12 @@ export declare class AuthController {
         ok: boolean;
     }>;
     me(req: any): Promise<any>;
+    forgotPassword(body: ForgotPasswordDto): Promise<{
+        ok: boolean;
+        message: string;
+    }>;
+    changePassword(req: any, body: ChangePasswordDto): Promise<{
+        ok: boolean;
+        message: string;
+    }>;
 }

@@ -11,3 +11,12 @@ export declare class SignupDto {
 export declare class RefreshDto {
     refresh_token: string;
 }
+export declare class ChangePasswordDto {
+    currentPassword: string;
+    newPassword: string;
+}
+export declare class ForgotPasswordDto {
+    email: string;
+    currentPassword: string;
+    newPassword: string;
+}

@@ -127,6 +127,15 @@ export class UsersService {
     return this.userModel.findById(id).select('-password').exec();
   }
 
+  async findByIdWithPassword(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).select('+password').exec();
+  }
+
+  async updatePasswordHash(userId: string, newPassword: string): Promise<void> {
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.userModel.findByIdAndUpdate(userId, { password: hashed }).exec();
+  }
+
   async updateProfileSelf(
     userId: string,
     data: { name?: string; phone?: string; avatarUrl?: string },

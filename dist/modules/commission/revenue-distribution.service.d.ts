@@ -17,6 +17,6 @@ export declare class RevenueDistributionService {
     private readonly logger;
     constructor(connection: Connection, purchaseModel: Model<PurchaseDocument>, planSaleModel: Model<PlanSaleDocument>, commissionModel: Model<CommissionDocument>, userModel: Model<UserDocument>, walletRepo: WalletRepository, settingsService: SettingsService);
     distributePurchase(purchase: PurchaseDocument, course: CourseDocument, couponOwner: UserDocument): Promise<void>;
-    distributePlanSale(sale: PlanSaleDocument, amount: number, seller: UserDocument): Promise<void>;
+    distributePlanSale(sale: PlanSaleDocument, paidAmount: number, seller: UserDocument, commissionBase?: number): Promise<void>;
     distributePlatformOnly(purchase: PurchaseDocument): Promise<void>;
 }

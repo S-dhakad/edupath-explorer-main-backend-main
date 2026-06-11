@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -99,5 +99,38 @@ export class AuthService {
   async logout(userId: string) {
     await this.usersService.updateRefreshTokenHash(userId, null);
     return { ok: true };
+  }
+
+  async changePassword(userId: string, currentPassword: string, newPassword: string) {
+    return this.applyPasswordChange(
+      () => this.usersService.findByIdWithPassword(userId),
+      currentPassword,
+      newPassword,
+    );
+  }
+
+  async forgotPassword(email: string, currentPassword: string, newPassword: string) {
+    return this.applyPasswordChange(
+      () => this.usersService.findByEmail(email, true),
+      currentPassword,
+      newPassword,
+    );
+  }
+
+  private async applyPasswordChange(
+    loadUser: () => Promise<{ _id: { toString(): string }; password: string } | null>,
+    currentPassword: string,
+    newPassword: string,
+  ) {
+    if (currentPassword === newPassword) {
+      throw new BadRequestException('New password must be different from your current password');
+    }
+    const user = await loadUser();
+    if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+      throw new UnauthorizedException('Invalid email or current password');
+    }
+    await this.usersService.updatePasswordHash(user._id.toString(), newPassword);
+    await this.usersService.updateRefreshTokenHash(user._id.toString(), null);
+    return { ok: true, message: 'Password updated successfully. Please sign in with your new password.' };
   }
 }

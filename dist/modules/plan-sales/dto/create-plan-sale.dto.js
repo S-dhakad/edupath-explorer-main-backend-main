@@ -24,11 +24,6 @@ __decorate([
     __metadata("design:type", String)
 ], CreatePlanSaleDto.prototype, "email", void 0);
 __decorate([
-    (0, class_validator_1.IsInt)(),
-    (0, class_validator_1.Min)(1),
-    __metadata("design:type", Number)
-], CreatePlanSaleDto.prototype, "age", void 0);
-__decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreatePlanSaleDto.prototype, "dateOfBirth", void 0);

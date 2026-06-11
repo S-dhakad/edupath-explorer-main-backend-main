@@ -32,6 +32,8 @@ export declare class PlanSalesService {
         total: number;
         commissionPreview: {
             paidAmount: number;
+            commissionBase: number;
+            cappedToSellerPlan: boolean;
             promoOwnerName: string;
             promoOwnerId: any;
             uplineId: string;
@@ -51,7 +53,6 @@ export declare class PlanSalesService {
             id: any;
             name: string;
             tierId: any;
-            credit?: undefined;
         };
         subtotal: number;
         discountAmount: number;
@@ -61,47 +62,6 @@ export declare class PlanSalesService {
         referrerName: string | undefined;
         promoOwner: UserDocument | undefined;
         discountLabel: string | undefined;
-        attributionOnly: boolean;
-        planId: string;
-        planName: string;
-        originalPrice: number;
-        promoPrice: any;
-        listPrice: number;
-        memberPromoDiscountPercent: number;
-    } | {
-        tax: number;
-        total: number;
-        commissionPreview: {
-            paidAmount: number;
-            promoOwnerName: string;
-            promoOwnerId: any;
-            uplineId: string;
-            sellerShare: number;
-            parentShare: number;
-            platformShare: number;
-            sellerPercent: number;
-            parentPercent: number;
-            platformPercent: number;
-        };
-        subtotal: number;
-        discountAmount: number;
-        finalSubtotal: number;
-        targetPrice: number;
-        upgradeCredit: number;
-        isUpgrade: boolean;
-        samePlan: boolean;
-        isDowngrade: boolean;
-        currentPlan: {
-            id: any;
-            name: string;
-            tierId: any;
-            credit: number;
-        };
-        discountLabel: string;
-        promoCode: string | undefined;
-        kind: "admin_coupon" | "member_referral" | null;
-        referrerName: string | undefined;
-        promoOwner: UserDocument | undefined;
         attributionOnly: boolean;
         planId: string;
         planName: string;
@@ -132,7 +92,7 @@ export declare class PlanSalesService {
             promoPrice: any;
             targetPrice: any;
             upgradeCredit: number;
-            upgradeTotal: number;
+            upgradeTotal: any;
             features: string[];
         }[];
         uplinePromoCode: any;
@@ -143,6 +103,12 @@ export declare class PlanSalesService {
     private assertMemberPromoOwnerActive;
     private memberReferralPricing;
     private memberReferralPricingWithSettings;
+    private planEffectivePrice;
+    resolvePlanSaleCommissionBase(seller: UserDocument, soldPlan: {
+        price: number;
+        promoPrice?: number | null;
+        tierId?: string | null;
+    }): Promise<number>;
     private buildCommissionPreview;
     private resolvePlanPricing;
     initiateAffiliateCheckout(sellerId: string, dto: CreatePlanSaleDto): Promise<{
@@ -400,6 +366,7 @@ export declare class PlanSalesService {
     }>;
     private checkoutResponse;
     private sellerSaleFilter;
+    private dedupeSalesByBuyer;
     listMine(sellerId: string): Promise<{
         _id: any;
         fullName: any;

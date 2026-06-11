@@ -3,7 +3,7 @@ import { ApiBody, ApiTags } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './local-auth.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
-import { LoginDto, SignupDto, RefreshDto } from './dto/auth.dto';
+import { ChangePasswordDto, ForgotPasswordDto, LoginDto, SignupDto, RefreshDto } from './dto/auth.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -40,5 +40,24 @@ export class AuthController {
     delete u.password;
     delete u.refreshTokenHash;
     return u;
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
+    return this.authService.forgotPassword(
+      body.email,
+      body.currentPassword,
+      body.newPassword,
+    );
+  }
+
+  @Post('change-password')
+  @UseGuards(JwtAuthGuard)
+  async changePassword(@Request() req, @Body() body: ChangePasswordDto) {
+    return this.authService.changePassword(
+      req.user._id.toString(),
+      body.currentPassword,
+      body.newPassword,
+    );
   }
 }

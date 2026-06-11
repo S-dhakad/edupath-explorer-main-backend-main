@@ -138,6 +138,24 @@ let AuthService = class AuthService {
         await this.usersService.updateRefreshTokenHash(userId, null);
         return { ok: true };
     }
+    async changePassword(userId, currentPassword, newPassword) {
+        return this.applyPasswordChange(() => this.usersService.findByIdWithPassword(userId), currentPassword, newPassword);
+    }
+    async forgotPassword(email, currentPassword, newPassword) {
+        return this.applyPasswordChange(() => this.usersService.findByEmail(email, true), currentPassword, newPassword);
+    }
+    async applyPasswordChange(loadUser, currentPassword, newPassword) {
+        if (currentPassword === newPassword) {
+            throw new common_1.BadRequestException('New password must be different from your current password');
+        }
+        const user = await loadUser();
+        if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
+            throw new common_1.UnauthorizedException('Invalid email or current password');
+        }
+        await this.usersService.updatePasswordHash(user._id.toString(), newPassword);
+        await this.usersService.updateRefreshTokenHash(user._id.toString(), null);
+        return { ok: true, message: 'Password updated successfully. Please sign in with your new password.' };
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([

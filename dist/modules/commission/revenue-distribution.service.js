@@ -106,16 +106,18 @@ let RevenueDistributionService = RevenueDistributionService_1 = class RevenueDis
         }
         this.logger.log(`Distributed commissions for purchase ${purchaseId}`);
     }
-    async distributePlanSale(sale, amount, seller) {
+    async distributePlanSale(sale, paidAmount, seller, commissionBase) {
         if (sale.commissionsDistributed)
             return;
         const settings = await this.settingsService.getGlobal();
         const ownerPct = settings.couponOwnerPercent;
         const platPct = settings.platformPercent;
         const parentPct = settings.directParentPercent;
-        const ownerAmount = round2((amount * ownerPct) / 100);
-        let platformAmount = round2((amount * platPct) / 100);
-        let parentAmount = round2((amount * parentPct) / 100);
+        const pool = commissionBase != null && commissionBase > 0 ? commissionBase : paidAmount;
+        const ownerAmount = round2((pool * ownerPct) / 100);
+        let platformAmount = round2((pool * platPct) / 100);
+        let parentAmount = round2((pool * parentPct) / 100);
+        platformAmount = round2(platformAmount + Math.max(0, paidAmount - pool));
         const parentId = seller.referredBy ? seller.referredBy.toString() : null;
         if (!parentId) {
             platformAmount = round2(platformAmount + parentAmount);

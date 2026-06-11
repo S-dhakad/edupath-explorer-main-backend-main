@@ -54,8 +54,13 @@ export class PlanSalesService {
     const pricing = await this.resolveCheckoutPricing(plan, promoCode, buyerUserId);
     const tax = 0;
     const settings = await this.settingsService.getGlobal();
+    let commissionBase = pricing.finalSubtotal;
+    if (pricing.promoOwner) {
+      commissionBase = await this.resolvePlanSaleCommissionBase(pricing.promoOwner, plan as any);
+    }
     const commissionPreview = this.buildCommissionPreview(
       pricing.finalSubtotal,
+      commissionBase,
       pricing.promoOwner,
       settings.couponOwnerPercent,
       settings.directParentPercent,
@@ -109,7 +114,6 @@ export class PlanSalesService {
         if (targetRank <= currentRank) return null;
         
         const baseTargetPrice = (target as any).promoPrice ?? target.price;
-        const upgradeTotal = Math.max(0, baseTargetPrice - credit);
         return {
           planId: (target as any)._id.toString(),
           tierId: (target as any).tierId,
@@ -118,7 +122,7 @@ export class PlanSalesService {
           promoPrice: (target as any).promoPrice ?? null,
           targetPrice: baseTargetPrice,
           upgradeCredit: credit,
-          upgradeTotal: upgradeTotal,
+          upgradeTotal: baseTargetPrice,
           features: target.features ?? [],
         };
       }),
@@ -238,17 +242,35 @@ export class PlanSalesService {
       };
     }
 
-    const upgradeCredit = await this.getPlanCreditForUser(buyerUserId, currentPlan as any);
-    const finalSubtotal = Math.max(0, targetPrice - upgradeCredit);
-    const upgradeLabel = `Upgrade credit (${currentPlan.name})`;
+    const hasReferralPromo = Boolean(promoCode?.trim());
+    const listPrice = targetPlan.price;
+    let upgradeTargetPrice = basePricing.finalSubtotal;
+    let promoDiscount = basePricing.discountAmount;
+
+    // Match upgrade plan page: charge member promo price (no extra credit subtraction).
+    if (!hasReferralPromo) {
+      const planPromo =
+        targetPlan.promoPrice != null && targetPlan.promoPrice < listPrice
+          ? targetPlan.promoPrice
+          : listPrice;
+      upgradeTargetPrice = planPromo;
+      promoDiscount = Math.max(0, listPrice - planPromo);
+    }
+
+    const finalSubtotal = upgradeTargetPrice;
+    const promoLabel = hasReferralPromo
+      ? basePricing.discountLabel
+      : promoDiscount > 0
+        ? `Member promo price ₹${upgradeTargetPrice.toLocaleString('en-IN')}`
+        : undefined;
 
     return {
       ...basePricing,
-      subtotal: targetPlan.price,
-      discountAmount: basePricing.discountAmount + upgradeCredit,
+      subtotal: listPrice,
+      discountAmount: promoDiscount,
       finalSubtotal,
-      targetPrice,
-      upgradeCredit,
+      targetPrice: upgradeTargetPrice,
+      upgradeCredit: 0,
       isUpgrade: true,
       samePlan: false,
       isDowngrade: false,
@@ -256,11 +278,8 @@ export class PlanSalesService {
         id: currentOid,
         name: currentPlan.name,
         tierId: (currentPlan as any).tierId,
-        credit: upgradeCredit,
       },
-      discountLabel: basePricing.discountLabel
-        ? `${basePricing.discountLabel} · ${upgradeLabel}`
-        : upgradeLabel,
+      discountLabel: promoLabel,
     };
   }
 
@@ -327,24 +346,63 @@ export class PlanSalesService {
     };
   }
 
+  /** Member promo/list price used for commission tier rules. */
+  private planEffectivePrice(plan: { price: number; promoPrice?: number | null }): number {
+    if (plan.promoPrice != null && plan.promoPrice < plan.price) return plan.promoPrice;
+    return plan.price;
+  }
+
+  /**
+   * Commission pool for plan sales:
+   * - Sold plan is higher than seller's active plan → seller's plan price
+   * - Sold plan is same or lower tier → sold plan price
+   */
+  async resolvePlanSaleCommissionBase(
+    seller: UserDocument,
+    soldPlan: { price: number; promoPrice?: number | null; tierId?: string | null },
+  ): Promise<number> {
+    const soldBase = this.planEffectivePrice(soldPlan);
+
+    if (!seller.accountActive || !seller.planId) {
+      return soldBase;
+    }
+
+    const sellerPlan = await this.plansService.findById(seller.planId.toString());
+    if (!sellerPlan) return soldBase;
+
+    const sellerBase = this.planEffectivePrice(sellerPlan as any);
+    const sellerRank = await this.plansService.getTierRank((sellerPlan as any).tierId);
+    const soldRank = await this.plansService.getTierRank(soldPlan.tierId);
+
+    if (soldRank > sellerRank) {
+      return sellerBase;
+    }
+    return soldBase;
+  }
+
   private buildCommissionPreview(
     paidAmount: number,
+    commissionBase: number,
     promoOwner: UserDocument | null | undefined,
     ownerPct: number,
     parentPct: number,
     platPct: number,
   ) {
-    const base = paidAmount;
-    const sellerShare = round2((base * ownerPct) / 100);
-    let platformShare = round2((base * platPct) / 100);
-    let parentShare = round2((base * parentPct) / 100);
+    const pool = commissionBase > 0 ? commissionBase : paidAmount;
+    const sellerShare = round2((pool * ownerPct) / 100);
+    let platformShare = round2((pool * platPct) / 100);
+    let parentShare = round2((pool * parentPct) / 100);
+    const surplus = Math.max(0, paidAmount - pool);
+    platformShare = round2(platformShare + surplus);
     const parentId = promoOwner?.referredBy ? (promoOwner.referredBy as Types.ObjectId).toString() : null;
     if (!parentId) {
       platformShare = round2(platformShare + parentShare);
       parentShare = 0;
     }
     return {
-      paidAmount: base,
+      paidAmount,
+      commissionBase: pool,
+      cappedToSellerPlan: pool < paidAmount,
       promoOwnerName: promoOwner?.name,
       promoOwnerId: promoOwner ? (promoOwner as any)._id?.toString() : null,
       uplineId: parentId,
@@ -433,7 +491,7 @@ export class PlanSalesService {
       password: tempPassword,
       sellerId: sellerOid.toString(),
       planId: dto.planId,
-      age: dto.age,
+      age: 0,
       dateOfBirth: new Date(dto.dateOfBirth),
       phone: dto.contactNumber,
     });
@@ -444,7 +502,7 @@ export class PlanSalesService {
       planId: new Types.ObjectId(dto.planId),
       fullName: dto.fullName.trim(),
       email,
-      age: dto.age,
+      age: 0,
       dateOfBirth: new Date(dto.dateOfBirth),
       contactNumber: dto.contactNumber,
       promoCode: promo,
@@ -510,9 +568,9 @@ export class PlanSalesService {
 
     const fullName = dto.fullName.trim();
     const email = buyer.email;
-    const age = dto.age;
-    const dateOfBirth = new Date(dto.dateOfBirth);
-    const contactNumber = dto.contactNumber.trim();
+    const age = buyer.age ?? 0;
+    const dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : (buyer.dateOfBirth ?? new Date());
+    const contactNumber = (dto.contactNumber || buyer.phone || '').trim();
 
     let sale = await this.saleModel
       .findOne({ buyerUserId: buyerOid, planId: planOid, status: PlanSaleStatus.PENDING_PAYMENT })
@@ -595,7 +653,7 @@ export class PlanSalesService {
     const sale = await this.saleModel
       .findOne({ paymentId: new Types.ObjectId(paymentId) })
       .select('+buyerTempPassword')
-      .populate('planId', 'name price')
+      .populate('planId', 'name price promoPrice tierId')
       .exec();
     if (!sale) throw new NotFoundException('Plan sale not found for this payment');
 
@@ -646,7 +704,14 @@ export class PlanSalesService {
     const seller = await this.usersService.findById(sale.sellerId.toString());
     if (seller && !sale.commissionsDistributed) {
       try {
-        await this.revenueDistribution.distributePlanSale(sale, pay.amount, seller as any);
+        const soldPlan = plan as { price: number; promoPrice?: number | null; tierId?: string };
+        const commissionBase = await this.resolvePlanSaleCommissionBase(seller as any, soldPlan);
+        await this.revenueDistribution.distributePlanSale(
+          sale,
+          pay.amount,
+          seller as any,
+          commissionBase,
+        );
       } catch (err) {
         this.logger.warn(
           `Plan sale ${sale._id} activated but commission split failed: ${(err as Error).message}`,
@@ -754,6 +819,27 @@ export class PlanSalesService {
     return { $or: or };
   }
 
+  /** One row per buyer — upgrades create a new sale; keep the latest record only. */
+  private dedupeSalesByBuyer<T extends { buyerUserId?: unknown; email?: string }>(
+    items: T[],
+  ): T[] {
+    const seen = new Set<string>();
+    const out: T[] = [];
+    for (const s of items) {
+      const buyerId =
+        s.buyerUserId && typeof s.buyerUserId === 'object' && '_id' in s.buyerUserId
+          ? String((s.buyerUserId as { _id: unknown })._id)
+          : s.buyerUserId
+            ? String(s.buyerUserId)
+            : null;
+      const key = buyerId ?? s.email?.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(s);
+    }
+    return out;
+  }
+
   async listMine(sellerId: string) {
     const seller = await this.usersService.findById(sellerId);
     const items = await this.saleModel
@@ -764,7 +850,9 @@ export class PlanSalesService {
       .populate('buyerUserId', 'name email accountActive phone')
       .lean();
 
-    return (items as any[]).map((s) => ({
+    const uniqueItems = this.dedupeSalesByBuyer(items as any[]);
+
+    return uniqueItems.map((s) => ({
       _id: s._id,
       fullName: s.fullName,
       email: s.email,
