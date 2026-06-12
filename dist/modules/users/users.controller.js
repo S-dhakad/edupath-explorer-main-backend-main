@@ -33,6 +33,7 @@ const plans_service_1 = require("../plans/plans.service");
 const kyc_service_1 = require("../kyc/kyc.service");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const update_profile_dto_1 = require("./dto/update-profile.dto");
+const media_upload_service_1 = require("../storage/media-upload.service");
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 function avatarDiskStorage() {
     const uploadDir = process.env.MEDIA_UPLOAD_DIR || 'uploads';
@@ -53,7 +54,7 @@ function avatarDiskStorage() {
     });
 }
 let UsersController = class UsersController {
-    constructor(usersService, purchasesService, coursesService, config, walletService, analyticsService, plansService, kycService) {
+    constructor(usersService, purchasesService, coursesService, config, walletService, analyticsService, plansService, kycService, mediaUpload) {
         this.usersService = usersService;
         this.purchasesService = purchasesService;
         this.coursesService = coursesService;
@@ -62,6 +63,7 @@ let UsersController = class UsersController {
         this.analyticsService = analyticsService;
         this.plansService = plansService;
         this.kycService = kycService;
+        this.mediaUpload = mediaUpload;
     }
     async getCourseCurriculum(req, slug) {
         const isAdmin = req.user.role === app_constants_1.UserRole.ADMIN;
@@ -83,20 +85,29 @@ let UsersController = class UsersController {
             }
         }
         const mediaBase = this.config.get('media.publicBase') || '';
+        const legacyVideos = (course.videos || [])
+            .filter((u) => typeof u === 'string' && u.trim())
+            .map((u) => (0, course_mapper_1.resolveMediaUrl)(u, mediaBase))
+            .filter(Boolean);
         return {
             slug: course.slug,
             title: course.title,
+            courseId: courseOid.toString(),
+            introVideoUrl: (0, course_mapper_1.resolveMediaUrl)(course.introVideoUrl, mediaBase),
+            trailerUrl: (0, course_mapper_1.resolveMediaUrl)(course.trailerUrl, mediaBase),
+            legacyVideos,
             modules: (0, course_mapper_1.mapCourseModulesForCurriculum)(course, mediaBase),
         };
     }
-    async updateProfile(user, body, avatar) {
+    async updateProfile(user, body, avatar, req) {
         const patch = {};
         if (body.name !== undefined)
             patch.name = body.name;
         if (body.phone !== undefined)
             patch.phone = body.phone;
-        if (avatar?.filename) {
-            patch.avatarUrl = `/uploads/avatars/${avatar.filename}`;
+        if (avatar && (avatar.filename || avatar.path || avatar.buffer)) {
+            const saved = await this.mediaUpload.persist(avatar, 'avatars', req);
+            patch.avatarUrl = saved.url;
         }
         if (!Object.keys(patch).length) {
             throw new common_1.BadRequestException('Nothing to update');
@@ -188,8 +199,9 @@ __decorate([
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.UploadedFile)()),
+    __param(3, (0, common_1.Request)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, update_profile_dto_1.UpdateProfileDto, Object]),
+    __metadata("design:paramtypes", [Object, update_profile_dto_1.UpdateProfileDto, Object, Object]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "updateProfile", null);
 __decorate([
@@ -212,6 +224,7 @@ exports.UsersController = UsersController = __decorate([
         wallet_service_1.WalletService,
         analytics_service_1.AnalyticsService,
         plans_service_1.PlansService,
-        kyc_service_1.KycService])
+        kyc_service_1.KycService,
+        media_upload_service_1.MediaUploadService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

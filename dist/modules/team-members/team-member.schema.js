@@ -27,6 +27,10 @@ __decorate([
     __metadata("design:type", String)
 ], TeamMember.prototype, "position", void 0);
 __decorate([
+    (0, mongoose_1.Prop)({ trim: true, maxlength: 160 }),
+    __metadata("design:type", String)
+], TeamMember.prototype, "shortDescription", void 0);
+__decorate([
     (0, mongoose_1.Prop)({ trim: true }),
     __metadata("design:type", String)
 ], TeamMember.prototype, "contactNumber", void 0);

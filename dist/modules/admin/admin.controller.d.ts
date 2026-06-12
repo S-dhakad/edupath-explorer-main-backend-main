@@ -1,5 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
+import { MediaUploadService } from '../storage/media-upload.service';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { Model } from 'mongoose';
@@ -10,10 +11,11 @@ export declare class AdminController {
     private users;
     private coursesService;
     private readonly config;
+    private readonly mediaUpload;
     private commissionModel;
     private kycModel;
     private withdrawalModel;
-    constructor(users: UsersService, coursesService: CoursesService, config: ConfigService, commissionModel: Model<CommissionDocument>, kycModel: Model<KycDocument>, withdrawalModel: Model<WithdrawalDocument>);
+    constructor(users: UsersService, coursesService: CoursesService, config: ConfigService, mediaUpload: MediaUploadService, commissionModel: Model<CommissionDocument>, kycModel: Model<KycDocument>, withdrawalModel: Model<WithdrawalDocument>);
     stats(): Promise<{
         totalUsers: number;
         totalCourses: number;

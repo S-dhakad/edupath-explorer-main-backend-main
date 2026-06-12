@@ -63,7 +63,7 @@ let AnalyticsService = class AnalyticsService {
         sinceMonth.setMonth(sinceMonth.getMonth() - 1);
         const u = await this.userModel.findById(userId).select('referralCode').lean();
         const code = u?.referralCode;
-        const [totals, daySum, weekSum, monthSum, passiveDaySum, passiveWeekSum, passiveMonthSum, salesCount] = await Promise.all([
+        const [totals, activeDaySum, activeWeekSum, activeMonthSum, passiveDaySum, passiveWeekSum, passiveMonthSum, salesCount] = await Promise.all([
             this.commissionModel.aggregate([
                 { $match: { beneficiaryUserId: uid, incomeCategory: { $in: ['active', 'passive'] } } },
                 {
@@ -78,7 +78,7 @@ let AnalyticsService = class AnalyticsService {
                 {
                     $match: {
                         beneficiaryUserId: uid,
-                        incomeCategory: { $in: ['active', 'passive'] },
+                        incomeCategory: 'active',
                         createdAt: { $gte: sinceDay },
                     },
                 },
@@ -88,7 +88,7 @@ let AnalyticsService = class AnalyticsService {
                 {
                     $match: {
                         beneficiaryUserId: uid,
-                        incomeCategory: { $in: ['active', 'passive'] },
+                        incomeCategory: 'active',
                         createdAt: { $gte: sinceWeek },
                     },
                 },
@@ -98,7 +98,7 @@ let AnalyticsService = class AnalyticsService {
                 {
                     $match: {
                         beneficiaryUserId: uid,
-                        incomeCategory: { $in: ['active', 'passive'] },
+                        incomeCategory: 'active',
                         createdAt: { $gte: sinceMonth },
                     },
                 },
@@ -146,9 +146,9 @@ let AnalyticsService = class AnalyticsService {
             totalActive: t.active,
             totalPassive: t.passive,
             lifetimeEarnings: t.active + t.passive,
-            todayIncome: daySum[0]?.t || 0,
-            weeklyIncome: weekSum[0]?.t || 0,
-            monthlyIncome: monthSum[0]?.t || 0,
+            todayIncome: activeDaySum[0]?.t || 0,
+            weeklyIncome: activeWeekSum[0]?.t || 0,
+            monthlyIncome: activeMonthSum[0]?.t || 0,
             todayPassiveIncome: passiveDaySum[0]?.t || 0,
             weeklyPassiveIncome: passiveWeekSum[0]?.t || 0,
             monthlyPassiveIncome: passiveMonthSum[0]?.t || 0,

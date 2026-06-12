@@ -17,24 +17,47 @@ const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const multer_1 = require("multer");
 const path_1 = require("path");
+const fs_1 = require("fs");
 const swagger_1 = require("@nestjs/swagger");
 const kyc_service_1 = require("./kyc.service");
+const media_upload_service_1 = require("../storage/media-upload.service");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const app_constants_1 = require("../../common/constants/app.constants");
 const kyc_schema_1 = require("./schemas/kyc.schema");
+function kycDiskStorage() {
+    const dir = (0, path_1.join)(process.cwd(), process.env.MEDIA_UPLOAD_DIR || 'uploads', 'kyc');
+    return (0, multer_1.diskStorage)({
+        destination: (_req, _file, cb) => {
+            if (!(0, fs_1.existsSync)(dir))
+                (0, fs_1.mkdirSync)(dir, { recursive: true });
+            cb(null, dir);
+        },
+        filename: (_req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            cb(null, `${file.fieldname}-${uniqueSuffix}${(0, path_1.extname)(file.originalname)}`);
+        },
+    });
+}
 let KycController = class KycController {
-    constructor(svc) {
+    constructor(svc, mediaUpload) {
         this.svc = svc;
+        this.mediaUpload = mediaUpload;
     }
-    submit(user, body, files) {
-        const data = {
-            ...body,
-            aadharImage: files.aadharImage ? `/uploads/kyc/${files.aadharImage[0].filename}` : undefined,
-            panImage: files.panImage ? `/uploads/kyc/${files.panImage[0].filename}` : undefined,
-        };
+    async submit(user, body, files, req) {
+        let aadharImage;
+        let panImage;
+        if (files.aadharImage?.[0]) {
+            const saved = await this.mediaUpload.persist(files.aadharImage[0], 'kyc', req);
+            aadharImage = saved.url;
+        }
+        if (files.panImage?.[0]) {
+            const saved = await this.mediaUpload.persist(files.panImage[0], 'kyc', req);
+            panImage = saved.url;
+        }
+        const data = { ...body, aadharImage, panImage };
         return this.svc.submit(user._id.toString(), data);
     }
     status(user) {
@@ -59,21 +82,14 @@ __decorate([
     (0, common_1.UseInterceptors)((0, platform_express_1.FileFieldsInterceptor)([
         { name: 'aadharImage', maxCount: 1 },
         { name: 'panImage', maxCount: 1 },
-    ], {
-        storage: (0, multer_1.diskStorage)({
-            destination: './uploads/kyc',
-            filename: (req, file, cb) => {
-                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-                cb(null, `${file.fieldname}-${uniqueSuffix}${(0, path_1.extname)(file.originalname)}`);
-            },
-        }),
-    })),
+    ], { storage: kycDiskStorage() })),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Body)()),
     __param(2, (0, common_1.UploadedFiles)()),
+    __param(3, (0, common_1.Req)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, Object, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [Object, Object, Object, Object]),
+    __metadata("design:returntype", Promise)
 ], KycController.prototype, "submit", null);
 __decorate([
     (0, common_1.Get)('status'),
@@ -110,6 +126,7 @@ __decorate([
 exports.KycController = KycController = __decorate([
     (0, swagger_1.ApiTags)('kyc'),
     (0, common_1.Controller)('kyc'),
-    __metadata("design:paramtypes", [kyc_service_1.KycService])
+    __metadata("design:paramtypes", [kyc_service_1.KycService,
+        media_upload_service_1.MediaUploadService])
 ], KycController);
 //# sourceMappingURL=kyc.controller.js.map

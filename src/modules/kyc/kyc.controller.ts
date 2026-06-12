@@ -1,9 +1,24 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+  UseInterceptors,
+  UploadedFiles,
+} from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
+import { mkdirSync, existsSync } from 'fs';
+import type { Request } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { KycService } from './kyc.service';
+import { MediaUploadService } from '../storage/media-upload.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -11,10 +26,27 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/app.constants';
 import { KycStatus } from './schemas/kyc.schema';
 
+function kycDiskStorage() {
+  const dir = join(process.cwd(), process.env.MEDIA_UPLOAD_DIR || 'uploads', 'kyc');
+  return diskStorage({
+    destination: (_req, _file, cb) => {
+      if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename: (_req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+    },
+  });
+}
+
 @ApiTags('kyc')
 @Controller('kyc')
 export class KycController {
-  constructor(private readonly svc: KycService) {}
+  constructor(
+    private readonly svc: KycService,
+    private readonly mediaUpload: MediaUploadService,
+  ) {}
 
   @Post('submit')
   @UseGuards(JwtAuthGuard)
@@ -25,27 +57,26 @@ export class KycController {
         { name: 'aadharImage', maxCount: 1 },
         { name: 'panImage', maxCount: 1 },
       ],
-      {
-        storage: diskStorage({
-          destination: './uploads/kyc',
-          filename: (req, file, cb) => {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-            cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
-          },
-        }),
-      },
+      { storage: kycDiskStorage() },
     ),
   )
-  submit(
+  async submit(
     @CurrentUser() user: any,
     @Body() body: any,
     @UploadedFiles() files: { aadharImage?: any[]; panImage?: any[] },
+    @Req() req: Request,
   ) {
-    const data = {
-      ...body,
-      aadharImage: files.aadharImage ? `/uploads/kyc/${files.aadharImage[0].filename}` : undefined,
-      panImage: files.panImage ? `/uploads/kyc/${files.panImage[0].filename}` : undefined,
-    };
+    let aadharImage: string | undefined;
+    let panImage: string | undefined;
+    if (files.aadharImage?.[0]) {
+      const saved = await this.mediaUpload.persist(files.aadharImage[0], 'kyc', req);
+      aadharImage = saved.url;
+    }
+    if (files.panImage?.[0]) {
+      const saved = await this.mediaUpload.persist(files.panImage[0], 'kyc', req);
+      panImage = saved.url;
+    }
+    const data = { ...body, aadharImage, panImage };
     return this.svc.submit(user._id.toString(), data);
   }
 

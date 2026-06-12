@@ -4,6 +4,7 @@ export declare class TeamMember {
     name: string;
     experience: string;
     position: string;
+    shortDescription?: string;
     contactNumber?: string;
     state: string;
     instagram?: string;

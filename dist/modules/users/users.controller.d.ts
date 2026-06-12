@@ -8,6 +8,7 @@ import { PlansService } from '../plans/plans.service';
 import { KycService } from '../kyc/kyc.service';
 import { Types } from 'mongoose';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { MediaUploadService } from '../storage/media-upload.service';
 export declare class UsersController {
     private usersService;
     private purchasesService;
@@ -17,16 +18,28 @@ export declare class UsersController {
     private analyticsService;
     private plansService;
     private kycService;
-    constructor(usersService: UsersService, purchasesService: PurchasesService, coursesService: CoursesService, config: ConfigService, walletService: WalletService, analyticsService: AnalyticsService, plansService: PlansService, kycService: KycService);
+    private readonly mediaUpload;
+    constructor(usersService: UsersService, purchasesService: PurchasesService, coursesService: CoursesService, config: ConfigService, walletService: WalletService, analyticsService: AnalyticsService, plansService: PlansService, kycService: KycService, mediaUpload: MediaUploadService);
     getCourseCurriculum(req: any, slug: string): Promise<{
         slug: string;
         title: string;
+        courseId: string;
+        introVideoUrl: string;
+        trailerUrl: string;
+        legacyVideos: any;
         modules: any;
     }>;
     updateProfile(user: {
         _id: Types.ObjectId;
     }, body: UpdateProfileDto, avatar?: {
-        filename: string;
+        filename?: string;
+        path?: string;
+        buffer?: Buffer;
+        mimetype: string;
+        size: number;
+    }, req?: {
+        protocol: string;
+        get: (h: string) => string | undefined;
     }): Promise<{
         user: import("./user.schema").UserDocument;
     }>;

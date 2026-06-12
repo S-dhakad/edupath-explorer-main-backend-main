@@ -1,12 +1,15 @@
+import type { Request } from 'express';
 import { KycService } from './kyc.service';
+import { MediaUploadService } from '../storage/media-upload.service';
 import { KycStatus } from './schemas/kyc.schema';
 export declare class KycController {
     private readonly svc;
-    constructor(svc: KycService);
+    private readonly mediaUpload;
+    constructor(svc: KycService, mediaUpload: MediaUploadService);
     submit(user: any, body: any, files: {
         aadharImage?: any[];
         panImage?: any[];
-    }): Promise<import("mongoose").Document<unknown, {}, import("./schemas/kyc.schema").KycDocument, {}, {}> & import("./schemas/kyc.schema").Kyc & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+    }, req: Request): Promise<import("mongoose").Document<unknown, {}, import("./schemas/kyc.schema").KycDocument, {}, {}> & import("./schemas/kyc.schema").Kyc & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {
         __v: number;

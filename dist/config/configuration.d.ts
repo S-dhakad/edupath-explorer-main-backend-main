@@ -33,6 +33,14 @@ declare const _default: () => {
         uploadDir: string;
         maxVideoMb: number;
     };
+    aws: {
+        accessKeyId: string;
+        secretAccessKey: string;
+        region: string;
+        s3Bucket: string;
+        s3PublicBase: string;
+        s3Enabled: boolean;
+    };
     platform: {
         userId: string;
     };

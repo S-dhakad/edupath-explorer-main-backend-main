@@ -25,7 +25,7 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const app_constants_1 = require("../../common/constants/app.constants");
-const media_url_1 = require("../../common/utils/media-url");
+const media_upload_service_1 = require("../storage/media-upload.service");
 const users_service_1 = require("../users/users.service");
 const courses_service_1 = require("../courses/courses.service");
 const mongoose_1 = require("@nestjs/mongoose");
@@ -68,10 +68,11 @@ function generalMediaDiskStorage() {
     });
 }
 let AdminController = class AdminController {
-    constructor(users, coursesService, config, commissionModel, kycModel, withdrawalModel) {
+    constructor(users, coursesService, config, mediaUpload, commissionModel, kycModel, withdrawalModel) {
         this.users = users;
         this.coursesService = coursesService;
         this.config = config;
+        this.mediaUpload = mediaUpload;
         this.commissionModel = commissionModel;
         this.kycModel = kycModel;
         this.withdrawalModel = withdrawalModel;
@@ -115,24 +116,17 @@ let AdminController = class AdminController {
         return this.coursesService.findAllAdmin();
     }
     async uploadCourseVideo(file, req) {
-        if (!file?.path) {
+        if (!file?.path && !file.buffer) {
             throw new common_1.BadRequestException('Missing file field "file"');
         }
-        const name = (0, node_path_1.basename)(file.path);
-        const relativePath = `/uploads/videos/${name}`;
-        const configuredBase = this.config.get('media.publicBase') || '';
-        const url = (0, media_url_1.buildMediaAbsoluteUrl)(req, relativePath, configuredBase);
-        return { path: relativePath, url, filename: name, size: file.size };
+        return this.mediaUpload.persist(file, 'videos', req);
     }
     async uploadMedia(file, req) {
-        if (!file?.path) {
+        if (!file?.path && !file.buffer) {
             throw new common_1.BadRequestException('Missing file field "file"');
         }
-        const name = (0, node_path_1.basename)(file.path);
-        const relativePath = `/uploads/media/${name}`;
-        const configuredBase = this.config.get('media.publicBase') || '';
-        const url = (0, media_url_1.buildMediaAbsoluteUrl)(req, relativePath, configuredBase);
-        return { path: relativePath, url, filename: name, size: file.size };
+        const folder = file.mimetype.startsWith('video/') ? 'videos' : 'images';
+        return this.mediaUpload.persist(file, folder, req);
     }
 };
 exports.AdminController = AdminController;
@@ -233,12 +227,13 @@ exports.AdminController = AdminController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(app_constants_1.UserRole.ADMIN),
     (0, swagger_1.ApiBearerAuth)(),
-    __param(3, (0, mongoose_1.InjectModel)(commission_schema_1.Commission.name)),
-    __param(4, (0, mongoose_1.InjectModel)(kyc_schema_1.Kyc.name)),
-    __param(5, (0, mongoose_1.InjectModel)(withdrawal_schema_1.Withdrawal.name)),
+    __param(4, (0, mongoose_1.InjectModel)(commission_schema_1.Commission.name)),
+    __param(5, (0, mongoose_1.InjectModel)(kyc_schema_1.Kyc.name)),
+    __param(6, (0, mongoose_1.InjectModel)(withdrawal_schema_1.Withdrawal.name)),
     __metadata("design:paramtypes", [users_service_1.UsersService,
         courses_service_1.CoursesService,
         config_1.ConfigService,
+        media_upload_service_1.MediaUploadService,
         mongoose_2.Model,
         mongoose_2.Model,
         mongoose_2.Model])

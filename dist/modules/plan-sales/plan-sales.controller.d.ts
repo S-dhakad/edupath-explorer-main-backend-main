@@ -187,40 +187,6 @@ export declare class PlanSalesController {
         alreadyPaid?: undefined;
     }>;
     purchaseSelf(user: any, dto: PurchasePlanSelfDto): Promise<{
-        sale: import("./plan-sale.schema").PlanSaleDocument;
-        plan: {
-            _id: any;
-            name: any;
-            price: any;
-        };
-        pricing: {
-            subtotal: number;
-            discountAmount: number;
-            finalSubtotal: number;
-            targetPrice: any;
-            upgradeCredit: any;
-            isUpgrade: any;
-            currentPlan: any;
-            tax: number;
-            total: number;
-            discountLabel: string;
-            attributionOnly: boolean;
-        };
-        payment: {
-            _id: any;
-            amount: any;
-            status: any;
-            orderId: any;
-        };
-        razorpay: {
-            keyId: any;
-            orderId: any;
-            amount: number;
-            currency: string;
-        };
-        buyerEmail: string;
-        message: string;
-    } | {
         alreadyPaid: boolean;
         sale: import("mongoose").Document<unknown, {}, import("./plan-sale.schema").PlanSaleDocument, {}, {}> & import("./plan-sale.schema").PlanSale & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
             _id: import("mongoose").Types.ObjectId;
@@ -257,6 +223,40 @@ export declare class PlanSalesController {
             loginUrl: string;
         };
         alreadyPaid?: undefined;
+    } | {
+        sale: import("./plan-sale.schema").PlanSaleDocument;
+        plan: {
+            _id: any;
+            name: any;
+            price: any;
+        };
+        pricing: {
+            subtotal: number;
+            discountAmount: number;
+            finalSubtotal: number;
+            targetPrice: any;
+            upgradeCredit: any;
+            isUpgrade: any;
+            currentPlan: any;
+            tax: number;
+            total: number;
+            discountLabel: string;
+            attributionOnly: boolean;
+        };
+        payment: {
+            _id: any;
+            amount: any;
+            status: any;
+            orderId: any;
+        };
+        razorpay: {
+            keyId: any;
+            orderId: any;
+            amount: number;
+            currency: string;
+        };
+        buyerEmail: string;
+        message: string;
     }>;
     mine(user: any): Promise<{
         _id: any;

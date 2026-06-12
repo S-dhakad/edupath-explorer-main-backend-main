@@ -36,6 +36,14 @@ exports.default = () => ({
         uploadDir: (process.env.MEDIA_UPLOAD_DIR || 'uploads').replace(/^\/+|\/+$/g, ''),
         maxVideoMb: Math.min(2048, Math.max(16, parseInt(process.env.MEDIA_MAX_VIDEO_MB || '512', 10) || 512)),
     },
+    aws: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+        region: process.env.AWS_REGION || 'ap-south-1',
+        s3Bucket: process.env.AWS_S3_BUCKET || '',
+        s3PublicBase: (process.env.AWS_S3_PUBLIC_BASE || '').replace(/\/$/, ''),
+        s3Enabled: process.env.AWS_S3_ENABLED !== 'false',
+    },
     platform: {
         userId: process.env.PLATFORM_WALLET_USER_ID || '000000000000000000000000',
     },

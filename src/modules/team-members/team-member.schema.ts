@@ -14,6 +14,9 @@ export class TeamMember {
   @Prop({ required: true, trim: true })
   position: string;
 
+  @Prop({ trim: true, maxlength: 160 })
+  shortDescription?: string;
+
   @Prop({ trim: true })
   contactNumber?: string;
 

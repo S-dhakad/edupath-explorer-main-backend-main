@@ -44,6 +44,7 @@ const mail_module_1 = require("./modules/mail/mail.module");
 const plan_sales_module_1 = require("./modules/plan-sales/plan-sales.module");
 const health_module_1 = require("./modules/health/health.module");
 const contact_page_module_1 = require("./modules/contact-page/contact-page.module");
+const storage_module_1 = require("./modules/storage/storage.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -52,6 +53,7 @@ exports.AppModule = AppModule = __decorate([
         imports: [
             mail_module_1.MailModule,
             config_1.ConfigModule.forRoot({ isGlobal: true, load: [configuration_1.default] }),
+            storage_module_1.StorageModule,
             throttler_1.ThrottlerModule.forRoot([
                 {
                     ttl: 60000,

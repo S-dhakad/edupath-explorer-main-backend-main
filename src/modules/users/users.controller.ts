@@ -28,12 +28,13 @@ import { WalletService } from '../wallet/wallet.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { CoursesService } from '../courses/courses.service';
 import { UserRole } from '../../common/constants/app.constants';
-import { mapCourseModulesForCurriculum, mapCourseToExplorerDto } from '../public/course-mapper';
+import { mapCourseModulesForCurriculum, mapCourseToExplorerDto, resolveMediaUrl } from '../public/course-mapper';
 import { PlansService } from '../plans/plans.service';
 import { KycService } from '../kyc/kyc.service';
 import { Types } from 'mongoose';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { MediaUploadService } from '../storage/media-upload.service';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -67,6 +68,7 @@ export class UsersController {
     private analyticsService: AnalyticsService,
     private plansService: PlansService,
     private kycService: KycService,
+    private readonly mediaUpload: MediaUploadService,
   ) {}
 
   /**
@@ -98,9 +100,17 @@ export class UsersController {
       }
     }
     const mediaBase = this.config.get<string>('media.publicBase') || '';
+    const legacyVideos = ((course as any).videos || [])
+      .filter((u: unknown) => typeof u === 'string' && u.trim())
+      .map((u: string) => resolveMediaUrl(u, mediaBase))
+      .filter(Boolean);
     return {
       slug: course.slug,
       title: course.title,
+      courseId: courseOid.toString(),
+      introVideoUrl: resolveMediaUrl((course as any).introVideoUrl, mediaBase),
+      trailerUrl: resolveMediaUrl((course as any).trailerUrl, mediaBase),
+      legacyVideos,
       modules: mapCourseModulesForCurriculum(course as any, mediaBase),
     };
   }
@@ -125,13 +135,15 @@ export class UsersController {
   async updateProfile(
     @CurrentUser() user: { _id: Types.ObjectId },
     @Body() body: UpdateProfileDto,
-    @UploadedFile() avatar?: { filename: string },
+    @UploadedFile() avatar?: { filename?: string; path?: string; buffer?: Buffer; mimetype: string; size: number },
+    @Request() req?: { protocol: string; get: (h: string) => string | undefined },
   ) {
     const patch: { name?: string; phone?: string; avatarUrl?: string } = {};
     if (body.name !== undefined) patch.name = body.name;
     if (body.phone !== undefined) patch.phone = body.phone;
-    if (avatar?.filename) {
-      patch.avatarUrl = `/uploads/avatars/${avatar.filename}`;
+    if (avatar && (avatar.filename || avatar.path || avatar.buffer)) {
+      const saved = await this.mediaUpload.persist(avatar, 'avatars', req as any);
+      patch.avatarUrl = saved.url;
     }
     if (!Object.keys(patch).length) {
       throw new BadRequestException('Nothing to update');

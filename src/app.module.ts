@@ -32,11 +32,13 @@ import { MailModule } from './modules/mail/mail.module';
 import { PlanSalesModule } from './modules/plan-sales/plan-sales.module';
 import { HealthModule } from './modules/health/health.module';
 import { ContactPageModule } from './modules/contact-page/contact-page.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
     MailModule,
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    StorageModule,
     ThrottlerModule.forRoot([
       {
         ttl: 60000,

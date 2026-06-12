@@ -17,13 +17,13 @@ import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { diskStorage } from 'multer';
 import { randomUUID } from 'node:crypto';
-import { join, basename } from 'node:path';
+import { join } from 'node:path';
 import { mkdirSync, existsSync } from 'node:fs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/app.constants';
-import { buildMediaAbsoluteUrl } from '../../common/utils/media-url';
+import { MediaUploadService } from '../storage/media-upload.service';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { InjectModel } from '@nestjs/mongoose';
@@ -80,6 +80,7 @@ export class AdminController {
     private users: UsersService,
     private coursesService: CoursesService,
     private readonly config: ConfigService,
+    private readonly mediaUpload: MediaUploadService,
     @InjectModel(Commission.name) private commissionModel: Model<CommissionDocument>,
     @InjectModel(Kyc.name) private kycModel: Model<KycDocument>,
     @InjectModel(Withdrawal.name) private withdrawalModel: Model<WithdrawalDocument>,
@@ -171,14 +172,10 @@ export class AdminController {
       | undefined,
     @Req() req: Request,
   ) {
-    if (!file?.path) {
+    if (!file?.path && !(file as { buffer?: Buffer }).buffer) {
       throw new BadRequestException('Missing file field "file"');
     }
-    const name = basename(file.path);
-    const relativePath = `/uploads/videos/${name}`;
-    const configuredBase = this.config.get<string>('media.publicBase') || '';
-    const url = buildMediaAbsoluteUrl(req, relativePath, configuredBase);
-    return { path: relativePath, url, filename: name, size: file.size };
+    return this.mediaUpload.persist(file, 'videos', req);
   }
 
   @Post('media/upload')
@@ -209,13 +206,10 @@ export class AdminController {
       | undefined,
     @Req() req: Request,
   ) {
-    if (!file?.path) {
+    if (!file?.path && !(file as { buffer?: Buffer }).buffer) {
       throw new BadRequestException('Missing file field "file"');
     }
-    const name = basename(file.path);
-    const relativePath = `/uploads/media/${name}`;
-    const configuredBase = this.config.get<string>('media.publicBase') || '';
-    const url = buildMediaAbsoluteUrl(req, relativePath, configuredBase);
-    return { path: relativePath, url, filename: name, size: file.size };
+    const folder = file.mimetype.startsWith('video/') ? 'videos' : 'images';
+    return this.mediaUpload.persist(file, folder, req);
   }
 }
