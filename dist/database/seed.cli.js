@@ -83,6 +83,14 @@ const DUMMY_USERS = [
         referralCode: 'EDUPATH01',
         planName: 'Basic',
     },
+    {
+        name: 'jamil khan',
+        email: 'jamilkhan786@gmail.com',
+        referralCode: 'JAMIL78601',
+        phone: '9669132900',
+        password: 'Jamil786!',
+        planName: 'Basic',
+    },
 ];
 const cover = (seed) => `https://images.unsplash.com/photo-${seed}?auto=format&fit=crop&w=1200&q=70`;
 async function run() {
@@ -155,12 +163,14 @@ async function run() {
         const referredBy = def.referredByEmail
             ? userByEmail[def.referredByEmail.toLowerCase()]?._id ?? null
             : null;
+        const passwordHash = await bcrypt.hash(def.password ?? DEMO_PASSWORD, 10);
         if (!doc) {
             doc = await userModel.create({
                 name: def.name,
                 email,
-                password: demoHash,
+                password: passwordHash,
                 referralCode: def.referralCode.toUpperCase(),
+                phone: def.phone?.trim() || undefined,
                 role: def.role ?? app_constants_1.UserRole.USER,
                 emailVerified: true,
                 accountActive: true,
@@ -178,8 +188,9 @@ async function run() {
             await userModel.updateOne({ _id: doc._id }, {
                 $set: {
                     name: def.name,
-                    password: demoHash,
+                    password: passwordHash,
                     referralCode: def.referralCode.toUpperCase(),
+                    phone: def.phone?.trim() || undefined,
                     emailVerified: true,
                     accountActive: true,
                     planId,
@@ -418,7 +429,10 @@ async function run() {
         const refNote = def.referredByEmail ? `referred by ${def.referredByEmail}` : 'no upline';
         console.log(`\n${def.name}`);
         console.log('  Email:    ', def.email);
-        console.log('  Password: ', DEMO_PASSWORD);
+        console.log('  Password: ', def.password ?? DEMO_PASSWORD);
+        if (def.phone) {
+            console.log('  Phone:    ', def.phone);
+        }
         console.log('  Promo:    ', def.referralCode, `(${planNote}, ${refNote})`);
     }
     console.log('\n--- Quick copy (login | promo) ---');

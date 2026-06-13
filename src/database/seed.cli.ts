@@ -28,6 +28,8 @@ type DummyUserDef = {
   name: string;
   email: string;
   referralCode: string;
+  phone?: string;
+  password?: string;
   planName?: 'Basic' | 'Smart' | 'Elite' | 'Premium';
   referredByEmail?: string;
   role?: UserRole;
@@ -64,6 +66,14 @@ const DUMMY_USERS: DummyUserDef[] = [
     name: 'Explorer Test User',
     email: 'user@edupath.local',
     referralCode: 'EDUPATH01',
+    planName: 'Basic',
+  },
+  {
+    name: 'jamil khan',
+    email: 'jamilkhan786@gmail.com',
+    referralCode: 'JAMIL78601',
+    phone: '9669132900',
+    password: 'Jamil786!',
     planName: 'Basic',
   },
 ];
@@ -160,13 +170,15 @@ async function run() {
     const referredBy = def.referredByEmail
       ? userByEmail[def.referredByEmail.toLowerCase()]?._id ?? null
       : null;
+    const passwordHash = await bcrypt.hash(def.password ?? DEMO_PASSWORD, 10);
 
     if (!doc) {
       doc = await userModel.create({
         name: def.name,
         email,
-        password: demoHash,
+        password: passwordHash,
         referralCode: def.referralCode.toUpperCase(),
+        phone: def.phone?.trim() || undefined,
         role: def.role ?? UserRole.USER,
         emailVerified: true,
         accountActive: true,
@@ -185,8 +197,9 @@ async function run() {
         {
           $set: {
             name: def.name,
-            password: demoHash,
+            password: passwordHash,
             referralCode: def.referralCode.toUpperCase(),
+            phone: def.phone?.trim() || undefined,
             emailVerified: true,
             accountActive: true,
             planId,
@@ -460,7 +473,11 @@ async function run() {
     // eslint-disable-next-line no-console
     console.log('  Email:    ', def.email);
     // eslint-disable-next-line no-console
-    console.log('  Password: ', DEMO_PASSWORD);
+    console.log('  Password: ', def.password ?? DEMO_PASSWORD);
+    if (def.phone) {
+      // eslint-disable-next-line no-console
+      console.log('  Phone:    ', def.phone);
+    }
     // eslint-disable-next-line no-console
     console.log('  Promo:    ', def.referralCode, `(${planNote}, ${refNote})`);
   }
