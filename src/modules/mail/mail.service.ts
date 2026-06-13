@@ -74,6 +74,41 @@ export class MailService {
     );
   }
 
+  planSaleAwaitingAdminApproval(
+    email: string,
+    name: string,
+    planName: string,
+    tempPassword?: string,
+  ) {
+    const loginUrl = this.config.get<string>('frontendUrl') || 'http://localhost:5173';
+    const pwdBlock = tempPassword
+      ? `<p>Email: <strong>${email}</strong><br/>Temporary password: <strong>${tempPassword}</strong></p>
+         <p>Please change your password after first login.</p>`
+      : `<p>Sign in with your existing password at <a href="${loginUrl}/login">${loginUrl}/login</a></p>`;
+    return this.send(
+      email,
+      'Payment received — plan pending admin approval',
+      `<p>Hi ${name},</p>
+       <p>Your payment for <strong>${planName}</strong> was successful.</p>
+       <p>You can log in now. Your plan will activate after admin approval.</p>
+       <p>Sign in at <a href="${loginUrl}/login">${loginUrl}/login</a></p>
+       ${pwdBlock}
+       <p>— StartSuccess Team</p>`,
+    );
+  }
+
+  planSaleRejected(email: string, name: string, planName: string, adminNote?: string) {
+    return this.send(
+      email,
+      'Plan activation update — StartSuccess',
+      `<p>Hi ${name},</p>
+       <p>Your request to activate <strong>${planName}</strong> was not approved.</p>
+       ${adminNote ? `<p>Note: ${adminNote}</p>` : ''}
+       <p>Contact support if you have questions about your payment.</p>
+       <p>— StartSuccess Team</p>`,
+    );
+  }
+
   planSaleActivated(
     email: string,
     name: string,

@@ -119,6 +119,12 @@ let UsersService = class UsersService {
             q.select('+password');
         return q.exec();
     }
+    async deleteInactiveUserByEmail(email) {
+        const user = await this.findByEmail(email);
+        if (user && !user.accountActive) {
+            await this.userModel.findByIdAndDelete(user._id).exec();
+        }
+    }
     async findByReferralCode(code) {
         return this.userModel.findOne({ referralCode: code?.toUpperCase() }).exec();
     }
@@ -177,6 +183,17 @@ let UsersService = class UsersService {
             return this.findById(userId);
         }
         return this.userModel.findByIdAndUpdate(userId, { $set: patch }, { new: true }).select('-password').exec();
+    }
+    async updateProfileAfterPayment(userId, data) {
+        return this.userModel
+            .findByIdAndUpdate(userId, {
+            name: data.name,
+            phone: data.phone,
+            age: data.age,
+            dateOfBirth: data.dateOfBirth,
+            accountActive: true,
+        }, { new: true })
+            .exec();
     }
     async updateProfileForSelfPlanPurchase(userId, data) {
         return this.userModel

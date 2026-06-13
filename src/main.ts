@@ -35,6 +35,7 @@ async function bootstrap() {
   const videosDir = join(uploadRoot, 'videos');
   const kycDir = join(uploadRoot, 'kyc');
   const mediaDir = join(uploadRoot, 'media');
+  const imagesDir = join(uploadRoot, 'images');
   const avatarsDir = join(uploadRoot, 'avatars');
   if (!existsSync(videosDir)) {
     mkdirSync(videosDir, { recursive: true });
@@ -44,6 +45,9 @@ async function bootstrap() {
   }
   if (!existsSync(mediaDir)) {
     mkdirSync(mediaDir, { recursive: true });
+  }
+  if (!existsSync(imagesDir)) {
+    mkdirSync(imagesDir, { recursive: true });
   }
   if (!existsSync(avatarsDir)) {
     mkdirSync(avatarsDir, { recursive: true });

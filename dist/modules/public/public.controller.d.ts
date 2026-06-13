@@ -1,6 +1,7 @@
 import { UsersService } from '../users/users.service';
 import { PublicService } from './public.service';
 import { PatchLandingPricingDto } from './dto/patch-landing-pricing.dto';
+import { PutLandingFeaturedDto } from './dto/put-landing-featured.dto';
 export declare class PublicController {
     private readonly publicService;
     private readonly usersService;
@@ -75,5 +76,21 @@ export declare class LandingAdminController {
         _id: import("mongoose").Types.ObjectId;
     }> & {
         __v: number;
+    }>;
+    getFeaturedCourses(): Promise<{
+        items: (import("mongoose").FlattenMaps<import("../courses/course.schema").CourseDocument> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
+        max: number;
+    }>;
+    putFeaturedCourses(body: PutLandingFeaturedDto): Promise<{
+        items: (import("mongoose").FlattenMaps<import("../courses/course.schema").CourseDocument> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
+        max: number;
     }>;
 }

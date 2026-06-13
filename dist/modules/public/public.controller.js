@@ -23,6 +23,7 @@ const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const app_constants_1 = require("../../common/constants/app.constants");
 const patch_landing_pricing_dto_1 = require("./dto/patch-landing-pricing.dto");
+const put_landing_featured_dto_1 = require("./dto/put-landing-featured.dto");
 let PublicController = class PublicController {
     constructor(publicService, usersService) {
         this.publicService = publicService;
@@ -97,6 +98,12 @@ let LandingAdminController = class LandingAdminController {
     patchPricing(body) {
         return this.publicService.updateLandingPricing(body);
     }
+    getFeaturedCourses() {
+        return this.publicService.getLandingFeaturedAdmin();
+    }
+    putFeaturedCourses(body) {
+        return this.publicService.setLandingFeatured(body.courseIds ?? []);
+    }
 };
 exports.LandingAdminController = LandingAdminController;
 __decorate([
@@ -121,6 +128,21 @@ __decorate([
     __metadata("design:paramtypes", [patch_landing_pricing_dto_1.PatchLandingPricingDto]),
     __metadata("design:returntype", void 0)
 ], LandingAdminController.prototype, "patchPricing", null);
+__decorate([
+    (0, common_1.Get)('featured-courses'),
+    (0, swagger_1.ApiOkResponse)({ description: 'Up to 6 courses pinned for the landing page' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], LandingAdminController.prototype, "getFeaturedCourses", null);
+__decorate([
+    (0, common_1.Put)('featured-courses'),
+    (0, swagger_1.ApiBody)({ type: put_landing_featured_dto_1.PutLandingFeaturedDto }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [put_landing_featured_dto_1.PutLandingFeaturedDto]),
+    __metadata("design:returntype", void 0)
+], LandingAdminController.prototype, "putFeaturedCourses", null);
 exports.LandingAdminController = LandingAdminController = __decorate([
     (0, swagger_1.ApiTags)('admin-landing'),
     (0, common_1.Controller)('admin/landing'),

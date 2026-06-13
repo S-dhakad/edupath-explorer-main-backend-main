@@ -104,6 +104,12 @@ let NotificationsService = class NotificationsService {
             .findOneAndUpdate({ _id: id, userId: new mongoose_2.Types.ObjectId(userId) }, { read: true }, { new: true })
             .exec();
     }
+    async markAllRead(userId) {
+        const result = await this.model
+            .updateMany({ userId: new mongoose_2.Types.ObjectId(userId), read: { $ne: true } }, { $set: { read: true } })
+            .exec();
+        return { updated: result.modifiedCount ?? 0 };
+    }
     async broadcast(payload) {
         const type = resolveNotificationType(payload.type);
         const userIds = await this.userModel.distinct('_id').lean().exec()
@@ -118,11 +124,13 @@ let NotificationsService = class NotificationsService {
         }));
         await this.model.insertMany(docs);
         for (const uid of userIds) {
-            this.gateway.emitToUser(uid, 'notification', {
+            const json = {
                 type,
                 title: payload.title,
                 body: payload.body,
-            });
+            };
+            this.gateway.emitToUser(uid, 'notification', json);
+            this.pushStream(uid, 'notification', json);
         }
         return { sent: userIds.length };
     }

@@ -15,7 +15,9 @@ const mongoose_2 = require("mongoose");
 var PlanSaleStatus;
 (function (PlanSaleStatus) {
     PlanSaleStatus["PENDING_PAYMENT"] = "pending_payment";
+    PlanSaleStatus["PAID_PENDING_APPROVAL"] = "paid_pending_approval";
     PlanSaleStatus["PAID"] = "paid";
+    PlanSaleStatus["REJECTED"] = "rejected";
 })(PlanSaleStatus || (exports.PlanSaleStatus = PlanSaleStatus = {}));
 let PlanSale = class PlanSale {
 };
@@ -25,7 +27,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], PlanSale.prototype, "sellerId", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', required: true }),
+    (0, mongoose_1.Prop)({ type: mongoose_2.Types.ObjectId, ref: 'User', default: null }),
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], PlanSale.prototype, "buyerUserId", void 0);
 __decorate([

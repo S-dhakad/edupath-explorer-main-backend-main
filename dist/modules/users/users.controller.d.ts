@@ -9,6 +9,8 @@ import { KycService } from '../kyc/kyc.service';
 import { Types } from 'mongoose';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { MediaUploadService } from '../storage/media-upload.service';
+import { PlanSalesService } from '../plan-sales/plan-sales.service';
+import { CategoriesService } from '../categories/categories.service';
 export declare class UsersController {
     private usersService;
     private purchasesService;
@@ -19,7 +21,9 @@ export declare class UsersController {
     private plansService;
     private kycService;
     private readonly mediaUpload;
-    constructor(usersService: UsersService, purchasesService: PurchasesService, coursesService: CoursesService, config: ConfigService, walletService: WalletService, analyticsService: AnalyticsService, plansService: PlansService, kycService: KycService, mediaUpload: MediaUploadService);
+    private planSalesService;
+    private categoriesService;
+    constructor(usersService: UsersService, purchasesService: PurchasesService, coursesService: CoursesService, config: ConfigService, walletService: WalletService, analyticsService: AnalyticsService, plansService: PlansService, kycService: KycService, mediaUpload: MediaUploadService, planSalesService: PlanSalesService, categoriesService: CategoriesService);
     getCourseCurriculum(req: any, slug: string): Promise<{
         slug: string;
         title: string;
@@ -61,6 +65,10 @@ export declare class UsersController {
         totalCourseSales: number;
         user: import("./user.schema").UserDocument;
         kycStatus: string;
+        pendingPlanApproval: {
+            saleId: any;
+            planName: any;
+        };
         activeMembership: {
             planId: string;
             planName: string;

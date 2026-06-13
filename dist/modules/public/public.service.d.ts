@@ -17,7 +17,7 @@ export declare class PublicService {
     private readonly plansService;
     constructor(landingModel: Model<LandingHeroDocument>, landingPricingModel: Model<LandingPricingDocument>, courseModel: Model<CourseDocument>, categoryModel: Model<CategoryDocument>, config: ConfigService, plansService: PlansService);
     ensureLandingDoc(): Promise<LandingHeroDocument>;
-    private categoryNameMap;
+    private categoryMetaMap;
     getHeroPayload(): Promise<{
         slides: {
             eyebrow: string;
@@ -58,6 +58,22 @@ export declare class PublicService {
         _id: Types.ObjectId;
     }> & {
         __v: number;
+    }>;
+    getLandingFeaturedAdmin(): Promise<{
+        items: (import("mongoose").FlattenMaps<CourseDocument> & Required<{
+            _id: Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
+        max: number;
+    }>;
+    setLandingFeatured(courseIds: string[]): Promise<{
+        items: (import("mongoose").FlattenMaps<CourseDocument> & Required<{
+            _id: Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
+        max: number;
     }>;
     private isVisibleOnLanding;
     private plainTier;

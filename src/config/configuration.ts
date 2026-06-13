@@ -26,6 +26,8 @@ export default () => ({
     payoutMode: (process.env.RAZORPAY_PAYOUT_MODE || 'IMPS').toUpperCase() as 'IMPS' | 'NEFT' | 'RTGS',
     /** When true and keys missing, simulate successful bank payout locally */
     payoutMock: process.env.RAZORPAY_PAYOUT_MOCK !== 'false',
+    /** When true and keys missing, skip Razorpay checkout (local dev only) */
+    paymentMock: process.env.RAZORPAY_PAYMENT_MOCK === 'true',
   },
   cors: {
     origin:

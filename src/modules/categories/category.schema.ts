@@ -16,6 +16,10 @@ export class Category {
 
   @Prop({ default: 0 })
   order: number;
+
+  /** Cover image for My Courses category tiles (admin upload / S3 URL) */
+  @Prop({ default: '', trim: true })
+  imageUrl: string;
 }
 
 export const CategorySchema = SchemaFactory.createForClass(Category);

@@ -19,6 +19,8 @@ export type ExplorerCourseDto = {
   courseId: string;
   title: string;
   category: string;
+  /** Category cover from admin (My Courses tiles) */
+  categoryImageUrl?: string;
   instructor: string;
   rating: number;
   students: number;
@@ -176,6 +178,7 @@ export function mapCourseToExplorerDto(
   course: Course | Record<string, any>,
   categoryName: string,
   mediaBase?: string,
+  categoryImageUrl?: string,
 ): ExplorerCourseDto {
   const flatLessons = flattenLessonsFromModules(course.modules);
   const totalSec = flatLessons.reduce((s, l) => s + (l.durationSec || 0), 0);
@@ -229,6 +232,7 @@ export function mapCourseToExplorerDto(
     courseId: (course as any)._id?.toString?.() ?? course.slug,
     title: course.title,
     category: categoryName || 'General',
+    ...(categoryImageUrl?.trim() ? { categoryImageUrl: categoryImageUrl.trim() } : {}),
     instructor: course.instructorName || 'Expert Instructor',
     rating: course.ratingAvg > 0 ? Math.round(course.ratingAvg * 10) / 10 : 4.8,
     students: course.salesCount || 0,

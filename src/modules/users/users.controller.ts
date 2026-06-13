@@ -35,6 +35,8 @@ import { Types } from 'mongoose';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { MediaUploadService } from '../storage/media-upload.service';
+import { PlanSalesService } from '../plan-sales/plan-sales.service';
+import { CategoriesService } from '../categories/categories.service';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
@@ -69,6 +71,8 @@ export class UsersController {
     private plansService: PlansService,
     private kycService: KycService,
     private readonly mediaUpload: MediaUploadService,
+    @Inject(forwardRef(() => PlanSalesService)) private planSalesService: PlanSalesService,
+    private categoriesService: CategoriesService,
   ) {}
 
   /**
@@ -160,13 +164,15 @@ export class UsersController {
     const userId = req.user._id.toString();
     const user = await this.usersService.findById(userId);
     if (!user) return { error: 'User not found' };
-    const [referrals, myPurchases, affiliateSales, wallet, summary, kycStatus] = await Promise.all([
+    const [referrals, myPurchases, affiliateSales, wallet, summary, kycStatus, pendingPlanSale] =
+      await Promise.all([
       this.usersService.getReferrals(userId),
       this.purchasesService.findByUser(userId),
       user.referralCode ? this.purchasesService.findByCoupon(user.referralCode) : Promise.resolve([]),
       this.walletService.getOrCreate(userId),
       this.analyticsService.dashboardSummary(userId),
       this.kycService.getStatus(userId),
+      this.planSalesService.findPendingApprovalForBuyer(userId),
     ]);
 
     const conversionRate =
@@ -187,7 +193,17 @@ export class UsersController {
       const plan = await this.plansService.findById(planOid.toString());
       planName = plan?.name ?? null;
       const courses = await this.plansService.findPublishedCoursesForMembership(planOid);
-      planCourses = courses.map((c) => mapCourseToExplorerDto(c as any, 'General', mediaBase));
+      const cats = await this.categoriesService.findAll();
+      const catById = new Map(cats.map((c) => [c._id.toString(), c]));
+      planCourses = courses.map((c) => {
+        const cat = catById.get((c as any).categoryId?.toString?.());
+        return mapCourseToExplorerDto(
+          c as any,
+          cat?.name || 'General',
+          mediaBase,
+          cat?.imageUrl,
+        );
+      });
       if (plan) {
         activeMembership = {
           planId: (plan as any)._id.toString(),
@@ -201,6 +217,12 @@ export class UsersController {
     return {
       user,
       kycStatus: (kycStatus as { status?: string })?.status ?? 'NOT_SUBMITTED',
+      pendingPlanApproval: pendingPlanSale
+        ? {
+            saleId: (pendingPlanSale as any)._id?.toString(),
+            planName: (pendingPlanSale as any).planId?.name ?? 'Membership plan',
+          }
+        : null,
       activeMembership,
       referrals: referrals.length,
       referralList: referrals,

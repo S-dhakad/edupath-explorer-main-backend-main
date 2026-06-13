@@ -29,6 +29,9 @@ let NotificationsController = class NotificationsController {
     list(user, page, limit) {
         return this.svc.list(user._id.toString(), parseInt(page || '1', 10), parseInt(limit || '30', 10));
     }
+    markAllRead(user) {
+        return this.svc.markAllRead(user._id.toString());
+    }
     markRead(user, id) {
         return this.svc.markRead(user._id.toString(), id);
     }
@@ -54,6 +57,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, String]),
     __metadata("design:returntype", void 0)
 ], NotificationsController.prototype, "list", null);
+__decorate([
+    (0, common_1.Patch)('read-all'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], NotificationsController.prototype, "markAllRead", null);
 __decorate([
     (0, common_1.Patch)(':id/read'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

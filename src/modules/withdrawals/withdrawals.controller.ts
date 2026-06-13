@@ -2,6 +2,7 @@ import { Body, Controller, Get, Headers, Param, Patch, Post, Query, Req, UseGuar
 import { RazorpayPayoutService } from '../payout/razorpay-payout.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { WithdrawalsService } from './withdrawals.service';
+import { AdminDecideWithdrawalDto } from './dto/admin-decide-withdrawal.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RolesGuard } from '../../common/guards/roles.guard';
@@ -50,9 +51,15 @@ export class WithdrawalsController {
   decide(
     @CurrentUser() admin: { _id: { toString(): string } },
     @Param('id') id: string,
-    @Body() body: { approve: boolean; adminNote?: string },
+    @Body() body: AdminDecideWithdrawalDto,
   ) {
-    return this.svc.decide(id, body.approve, body.adminNote, admin._id.toString());
+    return this.svc.decide(id, body.approve, {
+      adminNote: body.adminNote,
+      adminId: admin._id.toString(),
+      payoutMode: body.payoutMode,
+      paymentMethod: body.paymentMethod,
+      paymentReference: body.paymentReference,
+    });
   }
 
   @Post('admin/:id/sync-payout')

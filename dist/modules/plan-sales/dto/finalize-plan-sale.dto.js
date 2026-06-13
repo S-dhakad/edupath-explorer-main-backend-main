@@ -15,6 +15,7 @@ class FinalizePlanSaleDto {
 }
 exports.FinalizePlanSaleDto = FinalizePlanSaleDto;
 __decorate([
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsMongoId)(),
     __metadata("design:type", String)
 ], FinalizePlanSaleDto.prototype, "saleId", void 0);

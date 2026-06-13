@@ -1,5 +1,6 @@
 import { RazorpayPayoutService } from '../payout/razorpay-payout.service';
 import { WithdrawalsService } from './withdrawals.service';
+import { AdminDecideWithdrawalDto } from './dto/admin-decide-withdrawal.dto';
 import { WithdrawalStatus } from '../../common/constants/app.constants';
 export declare class WithdrawalsController {
     private readonly svc;
@@ -29,10 +30,7 @@ export declare class WithdrawalsController {
         _id: {
             toString(): string;
         };
-    }, id: string, body: {
-        approve: boolean;
-        adminNote?: string;
-    }): Promise<import("./withdrawal.schema").WithdrawalDocument>;
+    }, id: string, body: AdminDecideWithdrawalDto): Promise<import("./withdrawal.schema").WithdrawalDocument>;
     syncPayout(id: string): Promise<import("./withdrawal.schema").WithdrawalDocument | (import("mongoose").Document<unknown, {}, import("./withdrawal.schema").WithdrawalDocument, {}, {}> & import("./withdrawal.schema").Withdrawal & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {

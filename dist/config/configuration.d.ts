@@ -23,6 +23,7 @@ declare const _default: () => {
         xAccountNumber: string;
         payoutMode: "IMPS" | "NEFT" | "RTGS";
         payoutMock: boolean;
+        paymentMock: boolean;
     };
     cors: {
         origin: string[];

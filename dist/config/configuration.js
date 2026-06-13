@@ -25,6 +25,7 @@ exports.default = () => ({
         xAccountNumber: process.env.RAZORPAY_X_ACCOUNT_NUMBER || '',
         payoutMode: (process.env.RAZORPAY_PAYOUT_MODE || 'IMPS').toUpperCase(),
         payoutMock: process.env.RAZORPAY_PAYOUT_MOCK !== 'false',
+        paymentMock: process.env.RAZORPAY_PAYMENT_MOCK === 'true',
     },
     cors: {
         origin: process.env.CORS_ORIGIN?.split(',') ||

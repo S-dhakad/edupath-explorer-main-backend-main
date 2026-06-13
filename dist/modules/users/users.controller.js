@@ -34,6 +34,8 @@ const kyc_service_1 = require("../kyc/kyc.service");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const update_profile_dto_1 = require("./dto/update-profile.dto");
 const media_upload_service_1 = require("../storage/media-upload.service");
+const plan_sales_service_1 = require("../plan-sales/plan-sales.service");
+const categories_service_1 = require("../categories/categories.service");
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 function avatarDiskStorage() {
     const uploadDir = process.env.MEDIA_UPLOAD_DIR || 'uploads';
@@ -54,7 +56,7 @@ function avatarDiskStorage() {
     });
 }
 let UsersController = class UsersController {
-    constructor(usersService, purchasesService, coursesService, config, walletService, analyticsService, plansService, kycService, mediaUpload) {
+    constructor(usersService, purchasesService, coursesService, config, walletService, analyticsService, plansService, kycService, mediaUpload, planSalesService, categoriesService) {
         this.usersService = usersService;
         this.purchasesService = purchasesService;
         this.coursesService = coursesService;
@@ -64,6 +66,8 @@ let UsersController = class UsersController {
         this.plansService = plansService;
         this.kycService = kycService;
         this.mediaUpload = mediaUpload;
+        this.planSalesService = planSalesService;
+        this.categoriesService = categoriesService;
     }
     async getCourseCurriculum(req, slug) {
         const isAdmin = req.user.role === app_constants_1.UserRole.ADMIN;
@@ -122,13 +126,14 @@ let UsersController = class UsersController {
         const user = await this.usersService.findById(userId);
         if (!user)
             return { error: 'User not found' };
-        const [referrals, myPurchases, affiliateSales, wallet, summary, kycStatus] = await Promise.all([
+        const [referrals, myPurchases, affiliateSales, wallet, summary, kycStatus, pendingPlanSale] = await Promise.all([
             this.usersService.getReferrals(userId),
             this.purchasesService.findByUser(userId),
             user.referralCode ? this.purchasesService.findByCoupon(user.referralCode) : Promise.resolve([]),
             this.walletService.getOrCreate(userId),
             this.analyticsService.dashboardSummary(userId),
             this.kycService.getStatus(userId),
+            this.planSalesService.findPendingApprovalForBuyer(userId),
         ]);
         const conversionRate = referrals.length > 0 ? Math.min(100, (affiliateSales.length / referrals.length) * 100) : 0;
         const mediaBase = this.config.get('media.publicBase') || '';
@@ -140,7 +145,12 @@ let UsersController = class UsersController {
             const plan = await this.plansService.findById(planOid.toString());
             planName = plan?.name ?? null;
             const courses = await this.plansService.findPublishedCoursesForMembership(planOid);
-            planCourses = courses.map((c) => (0, course_mapper_1.mapCourseToExplorerDto)(c, 'General', mediaBase));
+            const cats = await this.categoriesService.findAll();
+            const catById = new Map(cats.map((c) => [c._id.toString(), c]));
+            planCourses = courses.map((c) => {
+                const cat = catById.get(c.categoryId?.toString?.());
+                return (0, course_mapper_1.mapCourseToExplorerDto)(c, cat?.name || 'General', mediaBase, cat?.imageUrl);
+            });
             if (plan) {
                 activeMembership = {
                     planId: plan._id.toString(),
@@ -153,6 +163,12 @@ let UsersController = class UsersController {
         return {
             user,
             kycStatus: kycStatus?.status ?? 'NOT_SUBMITTED',
+            pendingPlanApproval: pendingPlanSale
+                ? {
+                    saleId: pendingPlanSale._id?.toString(),
+                    planName: pendingPlanSale.planId?.name ?? 'Membership plan',
+                }
+                : null,
             activeMembership,
             referrals: referrals.length,
             referralList: referrals,
@@ -217,6 +233,7 @@ exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('users'),
     (0, common_1.Controller)('users'),
     __param(1, (0, common_1.Inject)((0, common_1.forwardRef)(() => purchases_service_1.PurchasesService))),
+    __param(9, (0, common_1.Inject)((0, common_1.forwardRef)(() => plan_sales_service_1.PlanSalesService))),
     __metadata("design:paramtypes", [users_service_1.UsersService,
         purchases_service_1.PurchasesService,
         courses_service_1.CoursesService,
@@ -225,6 +242,8 @@ exports.UsersController = UsersController = __decorate([
         analytics_service_1.AnalyticsService,
         plans_service_1.PlansService,
         kyc_service_1.KycService,
-        media_upload_service_1.MediaUploadService])
+        media_upload_service_1.MediaUploadService,
+        plan_sales_service_1.PlanSalesService,
+        categories_service_1.CategoriesService])
 ], UsersController);
 //# sourceMappingURL=users.controller.js.map

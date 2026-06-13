@@ -16,6 +16,8 @@ export declare class Withdrawal {
     paidAt?: Date;
     processedBy?: Types.ObjectId;
     payoutProvider?: string;
+    manualPaymentMethod?: string;
+    manualPaymentReference?: string;
     razorpayContactId?: string;
     razorpayFundAccountId?: string;
     razorpayPayoutId?: string;

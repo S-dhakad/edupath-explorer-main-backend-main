@@ -13,6 +13,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const admin_controller_1 = require("./admin.controller");
 const users_module_1 = require("../users/users.module");
 const courses_module_1 = require("../courses/courses.module");
+const plan_sales_module_1 = require("../plan-sales/plan-sales.module");
 const commission_schema_1 = require("../commission/schemas/commission.schema");
 const kyc_schema_1 = require("../kyc/schemas/kyc.schema");
 const withdrawal_schema_1 = require("../withdrawals/withdrawal.schema");
@@ -25,6 +26,7 @@ exports.AdminModule = AdminModule = __decorate([
             config_1.ConfigModule,
             users_module_1.UsersModule,
             courses_module_1.CoursesModule,
+            (0, common_1.forwardRef)(() => plan_sales_module_1.PlanSalesModule),
             mongoose_1.MongooseModule.forFeature([
                 { name: commission_schema_1.Commission.name, schema: commission_schema_1.CommissionSchema },
                 { name: kyc_schema_1.Kyc.name, schema: kyc_schema_1.KycSchema },

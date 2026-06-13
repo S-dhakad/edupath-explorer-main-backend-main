@@ -118,7 +118,7 @@ function resolvePricing(course) {
         pct = Math.min(90, Math.max(5, Math.round((1 - effective / strike) * 100)));
     return { effective, strikePrice: strike, discountPercent: pct };
 }
-function mapCourseToExplorerDto(course, categoryName, mediaBase) {
+function mapCourseToExplorerDto(course, categoryName, mediaBase, categoryImageUrl) {
     const flatLessons = flattenLessonsFromModules(course.modules);
     const totalSec = flatLessons.reduce((s, l) => s + (l.durationSec || 0), 0);
     const duration = course.durationLabel ||
@@ -164,6 +164,7 @@ function mapCourseToExplorerDto(course, categoryName, mediaBase) {
         courseId: course._id?.toString?.() ?? course.slug,
         title: course.title,
         category: categoryName || 'General',
+        ...(categoryImageUrl?.trim() ? { categoryImageUrl: categoryImageUrl.trim() } : {}),
         instructor: course.instructorName || 'Expert Instructor',
         rating: course.ratingAvg > 0 ? Math.round(course.ratingAvg * 10) / 10 : 4.8,
         students: course.salesCount || 0,

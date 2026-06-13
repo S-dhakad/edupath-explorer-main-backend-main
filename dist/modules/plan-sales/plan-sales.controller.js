@@ -17,9 +17,13 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const plan_sales_service_1 = require("./plan-sales.service");
 const create_plan_sale_dto_1 = require("./dto/create-plan-sale.dto");
+const create_guest_plan_checkout_dto_1 = require("./dto/create-guest-plan-checkout.dto");
 const purchase_plan_self_dto_1 = require("./dto/purchase-plan-self.dto");
 const finalize_plan_sale_dto_1 = require("./dto/finalize-plan-sale.dto");
 const quote_plan_dto_1 = require("./dto/quote-plan.dto");
+const public_quote_plan_dto_1 = require("./dto/public-quote-plan.dto");
+const admin_quote_plan_dto_1 = require("./dto/admin-quote-plan.dto");
+const admin_create_plan_sale_dto_1 = require("./dto/admin-create-plan-sale.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
@@ -33,6 +37,15 @@ let PlanSalesController = class PlanSalesController {
     quote(user, dto) {
         return this.svc.quoteCheckout(dto.planId, dto.promoCode, user?._id?.toString());
     }
+    publicQuote(dto) {
+        return this.svc.publicQuoteCheckout(dto.planId, dto.promoCode);
+    }
+    publicCheckout(dto) {
+        return this.svc.initiateGuestCheckout(dto);
+    }
+    publicFinalize(dto) {
+        return this.svc.finalizeGuestCheckout(dto.paymentId);
+    }
     upgradeOptions(user) {
         return this.svc.getUpgradeOptions(user._id.toString());
     }
@@ -43,13 +56,19 @@ let PlanSalesController = class PlanSalesController {
         return this.svc.initiateSelfCheckout(user._id.toString(), dto);
     }
     finalize(user, dto) {
-        return this.svc.finalizeCheckout(user._id.toString(), dto.saleId, dto.paymentId);
+        return this.svc.finalizeCheckout(user._id.toString(), dto.paymentId, dto.saleId);
     }
     purchaseSelf(user, dto) {
         return this.svc.purchaseSelf(user._id.toString(), dto);
     }
     mine(user) {
         return this.svc.listMine(user._id.toString());
+    }
+    adminQuote(dto) {
+        return this.svc.adminQuoteCheckout(dto.planId, dto.promoCode);
+    }
+    adminSell(user, dto) {
+        return this.svc.adminCreateOfflinePlanSale(user._id.toString(), dto);
     }
     adminList(status, page, limit) {
         return this.svc.listAll({
@@ -60,6 +79,9 @@ let PlanSalesController = class PlanSalesController {
     }
     markPaid(id, body) {
         return this.svc.markPaid(id, body.adminNote);
+    }
+    decide(id, body) {
+        return this.svc.adminDecidePlanSale(id, body.approve, body.adminNote);
     }
 };
 exports.PlanSalesController = PlanSalesController;
@@ -73,6 +95,27 @@ __decorate([
     __metadata("design:paramtypes", [Object, quote_plan_dto_1.QuotePlanDto]),
     __metadata("design:returntype", void 0)
 ], PlanSalesController.prototype, "quote", null);
+__decorate([
+    (0, common_1.Post)('public/quote'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [public_quote_plan_dto_1.PublicQuotePlanDto]),
+    __metadata("design:returntype", void 0)
+], PlanSalesController.prototype, "publicQuote", null);
+__decorate([
+    (0, common_1.Post)('public/checkout'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_guest_plan_checkout_dto_1.CreateGuestPlanCheckoutDto]),
+    __metadata("design:returntype", void 0)
+], PlanSalesController.prototype, "publicCheckout", null);
+__decorate([
+    (0, common_1.Post)('public/finalize'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [finalize_plan_sale_dto_1.FinalizePlanSaleDto]),
+    __metadata("design:returntype", void 0)
+], PlanSalesController.prototype, "publicFinalize", null);
 __decorate([
     (0, common_1.Get)('upgrade-options'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
@@ -132,6 +175,27 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], PlanSalesController.prototype, "mine", null);
 __decorate([
+    (0, common_1.Post)('admin/quote'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(app_constants_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [admin_quote_plan_dto_1.AdminQuotePlanDto]),
+    __metadata("design:returntype", void 0)
+], PlanSalesController.prototype, "adminQuote", null);
+__decorate([
+    (0, common_1.Post)('admin/sell'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(app_constants_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, admin_create_plan_sale_dto_1.AdminCreatePlanSaleDto]),
+    __metadata("design:returntype", void 0)
+], PlanSalesController.prototype, "adminSell", null);
+__decorate([
     (0, common_1.Get)('admin'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, roles_decorator_1.Roles)(app_constants_1.UserRole.ADMIN),
@@ -154,6 +218,17 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], PlanSalesController.prototype, "markPaid", null);
+__decorate([
+    (0, common_1.Patch)('admin/:id/decide'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(app_constants_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], PlanSalesController.prototype, "decide", null);
 exports.PlanSalesController = PlanSalesController = __decorate([
     (0, swagger_1.ApiTags)('plan-sales'),
     (0, common_1.Controller)('plan-sales'),

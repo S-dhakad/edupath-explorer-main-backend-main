@@ -42,7 +42,14 @@ export declare class WithdrawalsService {
         page: number;
         limit: number;
     }>;
-    decide(id: string, approve: boolean, adminNote?: string, adminId?: string): Promise<WithdrawalDocument>;
+    decide(id: string, approve: boolean, opts?: {
+        adminNote?: string;
+        adminId?: string;
+        payoutMode?: 'manual' | 'razorpayx';
+        paymentMethod?: string;
+        paymentReference?: string;
+    }): Promise<WithdrawalDocument>;
+    private markPaidManually;
     private initiateBankPayout;
     private finalizeRejected;
     applyPayoutResult(withdrawalId: string, providerStatus: string, razorpayPayoutId?: string, failureReason?: string): Promise<WithdrawalDocument | (import("mongoose").Document<unknown, {}, WithdrawalDocument, {}, {}> & Withdrawal & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{

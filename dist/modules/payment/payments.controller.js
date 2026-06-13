@@ -37,11 +37,38 @@ let PaymentsController = class PaymentsController {
             couponCode: body.couponCode,
         });
     }
+    async rzpVerify(body) {
+        const pay = await this.payments.confirmRazorpayPayment(body);
+        return {
+            payment: {
+                _id: pay._id,
+                status: pay.status,
+                orderId: pay.externalId,
+            },
+            verified: true,
+        };
+    }
+    async publicRzpVerify(body) {
+        const confirmed = await this.payments.confirmGuestRazorpayPayment(body);
+        return {
+            payment: {
+                _id: confirmed._id,
+                status: confirmed.status,
+                orderId: confirmed.externalId,
+            },
+            verified: true,
+        };
+    }
     stripeWebhook(req, sig) {
         this.payments.logWebhook('stripe', { sig, body: req.body });
         return { received: true };
     }
-    async rzpWebhook(body) {
+    async rzpWebhook(req, signature, body) {
+        const raw = req.rawBody?.toString('utf8') ||
+            (typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
+        if (signature && !this.payments.verifyWebhookSignature(raw, signature)) {
+            throw new common_1.BadRequestException('Invalid Razorpay webhook signature');
+        }
         this.payments.logWebhook('razorpay', body);
         const orderId = body?.payload?.payment?.entity?.order_id ||
             body?.payload?.order?.entity?.id ||
@@ -81,6 +108,22 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], PaymentsController.prototype, "rzpOrder", null);
 __decorate([
+    (0, common_1.Post)('razorpay/verify'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PaymentsController.prototype, "rzpVerify", null);
+__decorate([
+    (0, common_1.Post)('public/razorpay/verify'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PaymentsController.prototype, "publicRzpVerify", null);
+__decorate([
     (0, common_1.Post)('webhook/stripe'),
     __param(0, (0, common_1.Req)()),
     __param(1, (0, common_1.Headers)('stripe-signature')),
@@ -90,9 +133,11 @@ __decorate([
 ], PaymentsController.prototype, "stripeWebhook", null);
 __decorate([
     (0, common_1.Post)('webhook/razorpay'),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.Req)()),
+    __param(1, (0, common_1.Headers)('x-razorpay-signature')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String, Object]),
     __metadata("design:returntype", Promise)
 ], PaymentsController.prototype, "rzpWebhook", null);
 exports.PaymentsController = PaymentsController = __decorate([

@@ -196,18 +196,53 @@ async function run() {
         userByEmail[email] = doc;
     }
     const categoryDefs = [
-        { name: 'Web Development', slug: 'web-development', order: 1 },
-        { name: 'Artificial Intelligence', slug: 'artificial-intelligence', order: 2 },
-        { name: 'Design', slug: 'design', order: 3 },
-        { name: 'Data', slug: 'data', order: 4 },
-        { name: 'Cloud', slug: 'cloud', order: 5 },
-        { name: 'Mobile', slug: 'mobile', order: 6 },
+        {
+            name: 'Web Development',
+            slug: 'web-development',
+            order: 1,
+            imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=70',
+        },
+        {
+            name: 'Artificial Intelligence',
+            slug: 'artificial-intelligence',
+            order: 2,
+            imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=70',
+        },
+        {
+            name: 'Design',
+            slug: 'design',
+            order: 3,
+            imageUrl: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=800&q=70',
+        },
+        {
+            name: 'Data',
+            slug: 'data',
+            order: 4,
+            imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=70',
+        },
+        {
+            name: 'Cloud',
+            slug: 'cloud',
+            order: 5,
+            imageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=70',
+        },
+        {
+            name: 'Mobile',
+            slug: 'mobile',
+            order: 6,
+            imageUrl: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=70',
+        },
     ];
     const catBySlug = {};
     for (const c of categoryDefs) {
         let doc = await categoryModel.findOne({ slug: c.slug });
-        if (!doc)
+        if (!doc) {
             doc = await categoryModel.create(c);
+        }
+        else if (!String(doc.imageUrl ?? '').trim()) {
+            await categoryModel.updateOne({ _id: doc._id }, { $set: { imageUrl: c.imageUrl } });
+            doc = await categoryModel.findById(doc._id);
+        }
         catBySlug[c.slug] = doc;
     }
     const sampleModules = (hours) => [

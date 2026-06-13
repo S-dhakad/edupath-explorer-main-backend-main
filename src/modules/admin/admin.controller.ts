@@ -31,6 +31,7 @@ import { Model } from 'mongoose';
 import { Commission, CommissionDocument } from '../commission/schemas/commission.schema';
 import { Kyc, KycDocument } from '../kyc/schemas/kyc.schema';
 import { Withdrawal, WithdrawalDocument } from '../withdrawals/withdrawal.schema';
+import { PlanSalesService } from '../plan-sales/plan-sales.service';
 
 const MAX_VIDEO_UPLOAD_BYTES = Math.min(
   2048 * 1024 * 1024,
@@ -84,11 +85,13 @@ export class AdminController {
     @InjectModel(Commission.name) private commissionModel: Model<CommissionDocument>,
     @InjectModel(Kyc.name) private kycModel: Model<KycDocument>,
     @InjectModel(Withdrawal.name) private withdrawalModel: Model<WithdrawalDocument>,
+    private readonly planSales: PlanSalesService,
   ) {}
 
   @Get('stats')
   async stats() {
-    const [users, courses, revenue, pendingKyc, pendingWithdrawals] = await Promise.all([
+    const [users, courses, revenue, pendingKyc, pendingWithdrawals, pendingPlanApprovals] =
+      await Promise.all([
       this.users.countTotal(),
       this.coursesService.findAllAdmin().then((r) => r.length),
       this.commissionModel.aggregate([
@@ -97,6 +100,7 @@ export class AdminController {
       ]),
       this.kycModel.countDocuments({ status: 'PENDING' }),
       this.withdrawalModel.countDocuments({ status: 'PENDING' }),
+      this.planSales.countPendingApprovals(),
     ]);
     return {
       totalUsers: users,
@@ -104,6 +108,7 @@ export class AdminController {
       platformRevenue: revenue[0]?.t || 0,
       pendingKyc,
       pendingWithdrawals,
+      pendingPlanApprovals,
     };
   }
 

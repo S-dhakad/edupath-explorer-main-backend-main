@@ -18,6 +18,8 @@ const analytics_module_1 = require("../analytics/analytics.module");
 const courses_module_1 = require("../courses/courses.module");
 const plans_module_1 = require("../plans/plans.module");
 const kyc_module_1 = require("../kyc/kyc.module");
+const plan_sales_module_1 = require("../plan-sales/plan-sales.module");
+const categories_module_1 = require("../categories/categories.module");
 let UsersModule = class UsersModule {
 };
 exports.UsersModule = UsersModule;
@@ -26,7 +28,9 @@ exports.UsersModule = UsersModule = __decorate([
         imports: [
             mongoose_1.MongooseModule.forFeature([{ name: user_schema_1.User.name, schema: user_schema_1.UserSchema }]),
             (0, common_1.forwardRef)(() => purchases_module_1.PurchasesModule),
+            (0, common_1.forwardRef)(() => plan_sales_module_1.PlanSalesModule),
             courses_module_1.CoursesModule,
+            categories_module_1.CategoriesModule,
             plans_module_1.PlansModule,
             wallet_module_1.WalletModule,
             analytics_module_1.AnalyticsModule,

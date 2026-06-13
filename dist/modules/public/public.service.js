@@ -23,6 +23,7 @@ const landing_pricing_schema_1 = require("./schemas/landing-pricing.schema");
 const course_schema_1 = require("../courses/course.schema");
 const category_schema_1 = require("../categories/category.schema");
 const course_mapper_1 = require("./course-mapper");
+const put_landing_featured_dto_1 = require("./dto/put-landing-featured.dto");
 const plans_service_1 = require("../plans/plans.service");
 const public_defaults_1 = require("./public.defaults");
 var public_defaults_2 = require("./public.defaults");
@@ -45,32 +46,36 @@ let PublicService = class PublicService {
         }
         return doc;
     }
-    async categoryNameMap() {
+    async categoryMetaMap() {
         const cats = await this.categoryModel.find().lean();
         const m = new Map();
         for (const c of cats) {
-            m.set(c._id.toString(), c.name);
+            m.set(c._id.toString(), { name: c.name, imageUrl: c.imageUrl });
         }
         return m;
     }
     async getHeroPayload() {
         const landing = await this.ensureLandingDoc();
-        const catMap = await this.categoryNameMap();
+        const catMap = await this.categoryMetaMap();
         const mediaBase = this.config.get('media.publicBase') || '';
         let featured = await this.courseModel
             .find({ isPublished: true, featuredOnHero: true })
             .sort({ heroOrder: 1, createdAt: -1 })
+            .limit(put_landing_featured_dto_1.LANDING_FEATURED_MAX)
             .lean()
             .exec();
         if (!featured.length) {
             featured = await this.courseModel
                 .find({ isPublished: true })
                 .sort({ salesCount: -1, heroOrder: -1, createdAt: -1 })
-                .limit(8)
+                .limit(put_landing_featured_dto_1.LANDING_FEATURED_MAX)
                 .lean()
                 .exec();
         }
-        const courses = featured.map((c) => (0, course_mapper_1.mapCourseToExplorerDto)(c, catMap.get(c.categoryId?.toString()) || '', mediaBase));
+        const courses = featured.map((c) => {
+            const meta = catMap.get(c.categoryId?.toString());
+            return (0, course_mapper_1.mapCourseToExplorerDto)(c, meta?.name || '', mediaBase, meta?.imageUrl);
+        });
         return {
             slides: landing.slides?.length ? landing.slides : public_defaults_1.DEFAULT_LANDING_HERO.slides,
             trustPills: landing.trustPills?.length ? landing.trustPills : public_defaults_1.DEFAULT_LANDING_HERO.trustPills,
@@ -89,10 +94,10 @@ let PublicService = class PublicService {
             .exec();
         if (!c)
             throw new common_1.NotFoundException('Course not found');
-        const catMap = await this.categoryNameMap();
-        const name = catMap.get(c.categoryId?.toString?.()) || '';
+        const catMap = await this.categoryMetaMap();
+        const meta = catMap.get(c.categoryId?.toString?.());
         const mediaBase = this.config.get('media.publicBase') || '';
-        return (0, course_mapper_1.mapCourseToExplorerDto)(c, name, mediaBase);
+        return (0, course_mapper_1.mapCourseToExplorerDto)(c, meta?.name || '', mediaBase, meta?.imageUrl);
     }
     async listPublishedCoursesExplorer() {
         const list = await this.courseModel
@@ -100,15 +105,51 @@ let PublicService = class PublicService {
             .sort({ salesCount: -1, createdAt: -1 })
             .lean()
             .exec();
-        const catMap = await this.categoryNameMap();
+        const catMap = await this.categoryMetaMap();
         const mediaBase = this.config.get('media.publicBase') || '';
-        return list.map((c) => (0, course_mapper_1.mapCourseToExplorerDto)(c, catMap.get(c.categoryId?.toString()) || 'General', mediaBase));
+        return list.map((c) => {
+            const meta = catMap.get(c.categoryId?.toString());
+            return (0, course_mapper_1.mapCourseToExplorerDto)(c, meta?.name || 'General', mediaBase, meta?.imageUrl);
+        });
     }
     async updateLandingHero(patch) {
         const { key, ...rest } = patch;
         return this.landingModel
             .findOneAndUpdate({ key: 'default' }, { $set: rest }, { new: true, upsert: true })
             .exec();
+    }
+    async getLandingFeaturedAdmin() {
+        const items = await this.courseModel
+            .find({ featuredOnHero: true })
+            .sort({ heroOrder: 1, createdAt: -1 })
+            .limit(put_landing_featured_dto_1.LANDING_FEATURED_MAX)
+            .select('title slug thumbnailUrl isPublished heroOrder featuredOnHero')
+            .lean()
+            .exec();
+        return { items, max: put_landing_featured_dto_1.LANDING_FEATURED_MAX };
+    }
+    async setLandingFeatured(courseIds) {
+        const unique = [...new Set(courseIds)];
+        if (unique.length !== courseIds.length) {
+            throw new common_1.BadRequestException('Duplicate course IDs are not allowed');
+        }
+        if (unique.length) {
+            const valid = await this.courseModel
+                .find({ _id: { $in: unique }, isPublished: true })
+                .select('_id')
+                .lean()
+                .exec();
+            if (valid.length !== unique.length) {
+                throw new common_1.BadRequestException('All featured courses must exist and be published');
+            }
+        }
+        await this.courseModel.updateMany({}, { $set: { featuredOnHero: false, heroOrder: 0 } }).exec();
+        for (let i = 0; i < unique.length; i++) {
+            await this.courseModel
+                .updateOne({ _id: unique[i] }, { $set: { featuredOnHero: true, heroOrder: i } })
+                .exec();
+        }
+        return this.getLandingFeaturedAdmin();
     }
     isVisibleOnLanding(tier) {
         if (tier.showOnLanding === true)

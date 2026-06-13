@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const razorpay_payout_service_1 = require("../payout/razorpay-payout.service");
 const swagger_1 = require("@nestjs/swagger");
 const withdrawals_service_1 = require("./withdrawals.service");
+const admin_decide_withdrawal_dto_1 = require("./dto/admin-decide-withdrawal.dto");
 const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 const roles_guard_1 = require("../../common/guards/roles.guard");
@@ -42,7 +43,13 @@ let WithdrawalsController = class WithdrawalsController {
         });
     }
     decide(admin, id, body) {
-        return this.svc.decide(id, body.approve, body.adminNote, admin._id.toString());
+        return this.svc.decide(id, body.approve, {
+            adminNote: body.adminNote,
+            adminId: admin._id.toString(),
+            payoutMode: body.payoutMode,
+            paymentMethod: body.paymentMethod,
+            paymentReference: body.paymentReference,
+        });
     }
     syncPayout(id) {
         return this.svc.syncPayoutStatus(id);
@@ -97,7 +104,7 @@ __decorate([
     __param(1, (0, common_1.Param)('id')),
     __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, Object]),
+    __metadata("design:paramtypes", [Object, String, admin_decide_withdrawal_dto_1.AdminDecideWithdrawalDto]),
     __metadata("design:returntype", void 0)
 ], WithdrawalsController.prototype, "decide", null);
 __decorate([

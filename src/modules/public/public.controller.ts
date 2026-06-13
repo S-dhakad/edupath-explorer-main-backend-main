@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Patch, Body, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Patch, Body, Post, Put, UseGuards } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { SkipThrottle } from '@nestjs/throttler';
@@ -8,6 +8,7 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/app.constants';
 import { PatchLandingPricingDto } from './dto/patch-landing-pricing.dto';
+import { PutLandingFeaturedDto } from './dto/put-landing-featured.dto';
 
 @ApiTags('public')
 @Controller('public')
@@ -71,5 +72,17 @@ export class LandingAdminController {
   @ApiBody({ type: PatchLandingPricingDto })
   patchPricing(@Body() body: PatchLandingPricingDto) {
     return this.publicService.updateLandingPricing(body);
+  }
+
+  @Get('featured-courses')
+  @ApiOkResponse({ description: 'Up to 6 courses pinned for the landing page' })
+  getFeaturedCourses() {
+    return this.publicService.getLandingFeaturedAdmin();
+  }
+
+  @Put('featured-courses')
+  @ApiBody({ type: PutLandingFeaturedDto })
+  putFeaturedCourses(@Body() body: PutLandingFeaturedDto) {
+    return this.publicService.setLandingFeatured(body.courseIds ?? []);
   }
 }

@@ -33,6 +33,7 @@ const mongoose_2 = require("mongoose");
 const commission_schema_1 = require("../commission/schemas/commission.schema");
 const kyc_schema_1 = require("../kyc/schemas/kyc.schema");
 const withdrawal_schema_1 = require("../withdrawals/withdrawal.schema");
+const plan_sales_service_1 = require("../plan-sales/plan-sales.service");
 const MAX_VIDEO_UPLOAD_BYTES = Math.min(2048 * 1024 * 1024, Math.max(16 * 1024 * 1024, (parseInt(process.env.MEDIA_MAX_VIDEO_MB || '512', 10) || 512) * 1024 * 1024));
 function courseVideoDiskStorage() {
     const uploadDir = process.env.MEDIA_UPLOAD_DIR || 'uploads';
@@ -68,7 +69,7 @@ function generalMediaDiskStorage() {
     });
 }
 let AdminController = class AdminController {
-    constructor(users, coursesService, config, mediaUpload, commissionModel, kycModel, withdrawalModel) {
+    constructor(users, coursesService, config, mediaUpload, commissionModel, kycModel, withdrawalModel, planSales) {
         this.users = users;
         this.coursesService = coursesService;
         this.config = config;
@@ -76,9 +77,10 @@ let AdminController = class AdminController {
         this.commissionModel = commissionModel;
         this.kycModel = kycModel;
         this.withdrawalModel = withdrawalModel;
+        this.planSales = planSales;
     }
     async stats() {
-        const [users, courses, revenue, pendingKyc, pendingWithdrawals] = await Promise.all([
+        const [users, courses, revenue, pendingKyc, pendingWithdrawals, pendingPlanApprovals] = await Promise.all([
             this.users.countTotal(),
             this.coursesService.findAllAdmin().then((r) => r.length),
             this.commissionModel.aggregate([
@@ -87,6 +89,7 @@ let AdminController = class AdminController {
             ]),
             this.kycModel.countDocuments({ status: 'PENDING' }),
             this.withdrawalModel.countDocuments({ status: 'PENDING' }),
+            this.planSales.countPendingApprovals(),
         ]);
         return {
             totalUsers: users,
@@ -94,6 +97,7 @@ let AdminController = class AdminController {
             platformRevenue: revenue[0]?.t || 0,
             pendingKyc,
             pendingWithdrawals,
+            pendingPlanApprovals,
         };
     }
     listUsers(page, limit, search) {
@@ -236,6 +240,7 @@ exports.AdminController = AdminController = __decorate([
         media_upload_service_1.MediaUploadService,
         mongoose_2.Model,
         mongoose_2.Model,
-        mongoose_2.Model])
+        mongoose_2.Model,
+        plan_sales_service_1.PlanSalesService])
 ], AdminController);
 //# sourceMappingURL=admin.controller.js.map

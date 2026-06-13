@@ -5,6 +5,7 @@ export declare class Category {
     slug: string;
     parentId: Types.ObjectId | null;
     order: number;
+    imageUrl: string;
 }
 export declare const CategorySchema: import("mongoose").Schema<Category, import("mongoose").Model<Category, any, any, any, Document<unknown, any, Category, any, {}> & Category & {
     _id: Types.ObjectId;

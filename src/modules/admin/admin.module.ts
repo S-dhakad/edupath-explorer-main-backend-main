@@ -1,9 +1,10 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AdminController } from './admin.controller';
 import { UsersModule } from '../users/users.module';
 import { CoursesModule } from '../courses/courses.module';
+import { PlanSalesModule } from '../plan-sales/plan-sales.module';
 import { Commission, CommissionSchema } from '../commission/schemas/commission.schema';
 import { Kyc, KycSchema } from '../kyc/schemas/kyc.schema';
 import { Withdrawal, WithdrawalSchema } from '../withdrawals/withdrawal.schema';
@@ -13,6 +14,7 @@ import { Withdrawal, WithdrawalSchema } from '../withdrawals/withdrawal.schema';
     ConfigModule,
     UsersModule,
     CoursesModule,
+    forwardRef(() => PlanSalesModule),
     MongooseModule.forFeature([
       { name: Commission.name, schema: CommissionSchema },
       { name: Kyc.name, schema: KycSchema },

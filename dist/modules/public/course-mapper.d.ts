@@ -12,6 +12,7 @@ export type ExplorerCourseDto = {
     courseId: string;
     title: string;
     category: string;
+    categoryImageUrl?: string;
     instructor: string;
     rating: number;
     students: number;
@@ -38,4 +39,4 @@ export type FlatLessonRow = {
 };
 export declare function flattenLessonsFromModules(modules: any): FlatLessonRow[];
 export declare function mapCourseModulesForCurriculum(course: Course | Record<string, any>, mediaBase?: string): any;
-export declare function mapCourseToExplorerDto(course: Course | Record<string, any>, categoryName: string, mediaBase?: string): ExplorerCourseDto;
+export declare function mapCourseToExplorerDto(course: Course | Record<string, any>, categoryName: string, mediaBase?: string, categoryImageUrl?: string): ExplorerCourseDto;

@@ -33,6 +33,7 @@ async function bootstrap() {
     const videosDir = (0, node_path_1.join)(uploadRoot, 'videos');
     const kycDir = (0, node_path_1.join)(uploadRoot, 'kyc');
     const mediaDir = (0, node_path_1.join)(uploadRoot, 'media');
+    const imagesDir = (0, node_path_1.join)(uploadRoot, 'images');
     const avatarsDir = (0, node_path_1.join)(uploadRoot, 'avatars');
     if (!(0, node_fs_1.existsSync)(videosDir)) {
         (0, node_fs_1.mkdirSync)(videosDir, { recursive: true });
@@ -42,6 +43,9 @@ async function bootstrap() {
     }
     if (!(0, node_fs_1.existsSync)(mediaDir)) {
         (0, node_fs_1.mkdirSync)(mediaDir, { recursive: true });
+    }
+    if (!(0, node_fs_1.existsSync)(imagesDir)) {
+        (0, node_fs_1.mkdirSync)(imagesDir, { recursive: true });
     }
     if (!(0, node_fs_1.existsSync)(avatarsDir)) {
         (0, node_fs_1.mkdirSync)(avatarsDir, { recursive: true });

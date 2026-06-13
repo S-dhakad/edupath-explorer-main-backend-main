@@ -21,6 +21,7 @@ export declare class UsersService {
     }): Promise<UserDocument>;
     activateAccount(userId: string, newPassword: string): Promise<UserDocument | null>;
     findByEmail(email: string, withPassword?: boolean): Promise<UserDocument | null>;
+    deleteInactiveUserByEmail(email: string): Promise<void>;
     findByReferralCode(code: string): Promise<UserDocument | null>;
     validateReferralCodeForCheckout(code: string, buyerUserId?: string): Promise<{
         valid: true;
@@ -36,6 +37,16 @@ export declare class UsersService {
         phone?: string;
         avatarUrl?: string;
     }): Promise<UserDocument | null>;
+    updateProfileAfterPayment(userId: string, data: {
+        name: string;
+        phone: string;
+        age: number;
+        dateOfBirth: Date;
+    }): Promise<import("mongoose").Document<unknown, {}, UserDocument, {}, {}> & User & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+        _id: Types.ObjectId;
+    }> & {
+        __v: number;
+    }>;
     updateProfileForSelfPlanPurchase(userId: string, data: {
         name: string;
         phone: string;

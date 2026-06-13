@@ -9,12 +9,16 @@ import { AnalyticsModule } from '../analytics/analytics.module';
 import { CoursesModule } from '../courses/courses.module';
 import { PlansModule } from '../plans/plans.module';
 import { KycModule } from '../kyc/kyc.module';
+import { PlanSalesModule } from '../plan-sales/plan-sales.module';
+import { CategoriesModule } from '../categories/categories.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     forwardRef(() => PurchasesModule),
+    forwardRef(() => PlanSalesModule),
     CoursesModule,
+    CategoriesModule,
     PlansModule,
     WalletModule,
     AnalyticsModule,

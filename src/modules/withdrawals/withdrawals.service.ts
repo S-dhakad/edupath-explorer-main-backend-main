@@ -79,7 +79,7 @@ export class WithdrawalsService {
             amount,
             ...payout,
             status: WithdrawalStatus.PENDING,
-            payoutProvider: 'razorpayx',
+            payoutProvider: 'admin',
           },
         ],
         txOpts,
@@ -149,8 +149,18 @@ export class WithdrawalsService {
     ]).then(([items, total]) => ({ items, total, page, limit }));
   }
 
-  /** Admin rejects — return funds to available balance. */
-  async decide(id: string, approve: boolean, adminNote?: string, adminId?: string) {
+  /** Admin rejects — return funds to available balance. Approve uses manual payout by default. */
+  async decide(
+    id: string,
+    approve: boolean,
+    opts?: {
+      adminNote?: string;
+      adminId?: string;
+      payoutMode?: 'manual' | 'razorpayx';
+      paymentMethod?: string;
+      paymentReference?: string;
+    },
+  ) {
     const doc = await this.model.findById(id).exec();
     if (!doc) throw new NotFoundException();
     if (doc.status !== WithdrawalStatus.PENDING) {
@@ -158,10 +168,63 @@ export class WithdrawalsService {
     }
 
     if (!approve) {
-      return this.finalizeRejected(doc, adminNote, adminId);
+      return this.finalizeRejected(doc, opts?.adminNote, opts?.adminId);
     }
 
-    return this.initiateBankPayout(doc, adminNote, adminId);
+    const mode = opts?.payoutMode ?? 'manual';
+    if (mode === 'razorpayx') {
+      return this.initiateBankPayout(doc, opts?.adminNote, opts?.adminId);
+    }
+
+    const method = opts?.paymentMethod?.trim();
+    if (!method) {
+      throw new BadRequestException('Select a payment method (cash, UPI, etc.)');
+    }
+    return this.markPaidManually(
+      doc,
+      method,
+      opts?.paymentReference,
+      opts?.adminNote,
+      opts?.adminId,
+    );
+  }
+
+  /** Admin confirms offline payment to member (no RazorpayX). */
+  private async markPaidManually(
+    doc: WithdrawalDocument,
+    paymentMethod: string,
+    paymentReference?: string,
+    adminNote?: string,
+    adminId?: string,
+  ) {
+    const id = doc._id.toString();
+    const uid = (doc.userId as Types.ObjectId).toString();
+    const ref = paymentReference?.trim();
+    const noteParts = [
+      adminNote?.trim(),
+      ref ? `Ref: ${ref}` : null,
+      `Paid via ${paymentMethod.replace(/_/g, ' ')}`,
+    ].filter(Boolean);
+
+    await runOptionalTransaction(this.connection, async (session) => {
+      await this.walletRepo.finalizeWithdrawal(uid, doc.amount, id, true, session);
+      doc.status = WithdrawalStatus.APPROVED;
+      doc.paidAt = new Date();
+      doc.payoutProvider = 'manual';
+      doc.manualPaymentMethod = paymentMethod;
+      doc.manualPaymentReference = ref || undefined;
+      doc.adminNote = noteParts.join(' · ') || doc.adminNote;
+      doc.payoutProviderStatus = 'manual_paid';
+      if (adminId) doc.processedBy = new Types.ObjectId(adminId);
+      await doc.save(session ? { session } : {});
+    });
+
+    void this.notifyWithdrawalOutcome(uid, id, doc.amount, WithdrawalStatus.APPROVED, doc.adminNote);
+    const u = await this.userModel.findById(uid).select('name email').lean();
+    if (u?.email) {
+      void this.mail.withdrawalPaid(u.email, u.name || 'User', doc.amount, doc.adminNote);
+    }
+    return doc;
   }
 
   /** Admin triggers RazorpayX bank transfer. */
@@ -204,6 +267,7 @@ export class WithdrawalsService {
     }
 
     doc.status = WithdrawalStatus.PROCESSING;
+    doc.payoutProvider = 'razorpayx';
     doc.adminNote = adminNote;
     doc.payoutInitiatedAt = new Date();
     doc.razorpayContactId = payoutResult.contactId;

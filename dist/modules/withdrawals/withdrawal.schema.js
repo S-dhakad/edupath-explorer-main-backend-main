@@ -69,9 +69,17 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Withdrawal.prototype, "processedBy", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ default: 'razorpayx' }),
+    (0, mongoose_1.Prop)({ default: 'admin' }),
     __metadata("design:type", String)
 ], Withdrawal.prototype, "payoutProvider", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Withdrawal.prototype, "manualPaymentMethod", void 0);
+__decorate([
+    (0, mongoose_1.Prop)(),
+    __metadata("design:type", String)
+], Withdrawal.prototype, "manualPaymentReference", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)

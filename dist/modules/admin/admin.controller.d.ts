@@ -7,6 +7,7 @@ import { Model } from 'mongoose';
 import { CommissionDocument } from '../commission/schemas/commission.schema';
 import { KycDocument } from '../kyc/schemas/kyc.schema';
 import { WithdrawalDocument } from '../withdrawals/withdrawal.schema';
+import { PlanSalesService } from '../plan-sales/plan-sales.service';
 export declare class AdminController {
     private users;
     private coursesService;
@@ -15,13 +16,15 @@ export declare class AdminController {
     private commissionModel;
     private kycModel;
     private withdrawalModel;
-    constructor(users: UsersService, coursesService: CoursesService, config: ConfigService, mediaUpload: MediaUploadService, commissionModel: Model<CommissionDocument>, kycModel: Model<KycDocument>, withdrawalModel: Model<WithdrawalDocument>);
+    private readonly planSales;
+    constructor(users: UsersService, coursesService: CoursesService, config: ConfigService, mediaUpload: MediaUploadService, commissionModel: Model<CommissionDocument>, kycModel: Model<KycDocument>, withdrawalModel: Model<WithdrawalDocument>, planSales: PlanSalesService);
     stats(): Promise<{
         totalUsers: number;
         totalCourses: number;
         platformRevenue: any;
         pendingKyc: number;
         pendingWithdrawals: number;
+        pendingPlanApprovals: number;
     }>;
     listUsers(page?: string, limit?: string, search?: string): Promise<{
         items: (import("mongoose").FlattenMaps<import("../users/user.schema").UserDocument> & Required<{

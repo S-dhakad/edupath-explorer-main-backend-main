@@ -87,6 +87,14 @@ export class UsersService {
     return q.exec();
   }
 
+  /** Remove abandoned inactive accounts from unpaid affiliate checkouts. */
+  async deleteInactiveUserByEmail(email: string): Promise<void> {
+    const user = await this.findByEmail(email);
+    if (user && !user.accountActive) {
+      await this.userModel.findByIdAndDelete(user._id).exec();
+    }
+  }
+
   async findByReferralCode(code: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ referralCode: code?.toUpperCase() }).exec();
   }
@@ -156,6 +164,26 @@ export class UsersService {
       return this.findById(userId);
     }
     return this.userModel.findByIdAndUpdate(userId, { $set: patch }, { new: true }).select('-password').exec();
+  }
+
+  /** Update profile after payment — plan activates only after admin approval. */
+  async updateProfileAfterPayment(
+    userId: string,
+    data: { name: string; phone: string; age: number; dateOfBirth: Date },
+  ) {
+    return this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          name: data.name,
+          phone: data.phone,
+          age: data.age,
+          dateOfBirth: data.dateOfBirth,
+          accountActive: true,
+        },
+        { new: true },
+      )
+      .exec();
   }
 
   /** Set once when user first earns attribution (signup ref or first purchase with coupon). */

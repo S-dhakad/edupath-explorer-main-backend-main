@@ -32,12 +32,41 @@ export declare class PaymentsController {
         };
         keyId: string;
         orderId: string;
+        amount: string | number;
         message: string;
+    }>;
+    rzpVerify(body: {
+        paymentId: string;
+        orderId: string;
+        razorpayPaymentId: string;
+        signature: string;
+    }): Promise<{
+        payment: {
+            _id: import("mongoose").Types.ObjectId;
+            status: import("../../common/constants/app.constants").PaymentStatus;
+            orderId: string;
+        };
+        verified: boolean;
+    }>;
+    publicRzpVerify(body: {
+        paymentId: string;
+        orderId: string;
+        razorpayPaymentId: string;
+        signature: string;
+    }): Promise<{
+        payment: {
+            _id: import("mongoose").Types.ObjectId;
+            status: import("../../common/constants/app.constants").PaymentStatus;
+            orderId: string;
+        };
+        verified: boolean;
     }>;
     stripeWebhook(req: RawBodyRequest<Request>, sig: string): {
         received: boolean;
     };
-    rzpWebhook(body: any): Promise<{
+    rzpWebhook(req: RawBodyRequest<Request> & {
+        rawBody?: Buffer;
+    }, signature: string, body: any): Promise<{
         received: boolean;
     }>;
 }

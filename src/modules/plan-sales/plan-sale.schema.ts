@@ -5,7 +5,9 @@ export type PlanSaleDocument = PlanSale & Document;
 
 export enum PlanSaleStatus {
   PENDING_PAYMENT = 'pending_payment',
+  PAID_PENDING_APPROVAL = 'paid_pending_approval',
   PAID = 'paid',
+  REJECTED = 'rejected',
 }
 
 @Schema({ timestamps: true, collection: 'plan_sales' })
@@ -13,8 +15,8 @@ export class PlanSale {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   sellerId: Types.ObjectId;
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  buyerUserId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
+  buyerUserId: Types.ObjectId | null;
 
   @Prop({ type: Types.ObjectId, ref: 'Plan', required: true })
   planId: Types.ObjectId;

@@ -31,6 +31,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: 0 }),
     __metadata("design:type", Number)
 ], Category.prototype, "order", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: '', trim: true }),
+    __metadata("design:type", String)
+], Category.prototype, "imageUrl", void 0);
 exports.Category = Category = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true, collection: 'categories' })
 ], Category);

@@ -1,4 +1,4 @@
 export declare class FinalizePlanSaleDto {
-    saleId: string;
+    saleId?: string;
     paymentId: string;
 }

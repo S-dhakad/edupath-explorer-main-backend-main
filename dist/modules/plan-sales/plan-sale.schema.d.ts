@@ -2,11 +2,13 @@ import { Document, Types } from 'mongoose';
 export type PlanSaleDocument = PlanSale & Document;
 export declare enum PlanSaleStatus {
     PENDING_PAYMENT = "pending_payment",
-    PAID = "paid"
+    PAID_PENDING_APPROVAL = "paid_pending_approval",
+    PAID = "paid",
+    REJECTED = "rejected"
 }
 export declare class PlanSale {
     sellerId: Types.ObjectId;
-    buyerUserId: Types.ObjectId;
+    buyerUserId: Types.ObjectId | null;
     planId: Types.ObjectId;
     fullName: string;
     email: string;

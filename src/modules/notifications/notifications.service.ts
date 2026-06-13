@@ -131,6 +131,16 @@ export class NotificationsService {
       .exec();
   }
 
+  async markAllRead(userId: string) {
+    const result = await this.model
+      .updateMany(
+        { userId: new Types.ObjectId(userId), read: { $ne: true } },
+        { $set: { read: true } },
+      )
+      .exec();
+    return { updated: result.modifiedCount ?? 0 };
+  }
+
   /** Send a notification to ALL users (admin broadcast). */
   async broadcast(payload: { title: string; body: string; type?: string }) {
     const type = resolveNotificationType(payload.type);
@@ -149,13 +159,15 @@ export class NotificationsService {
 
     await this.model.insertMany(docs);
 
-    // Emit via WebSocket to all connected users
+    // Emit via WebSocket + SSE live stream for connected clients
     for (const uid of userIds) {
-      this.gateway.emitToUser(uid, 'notification', {
+      const json = {
         type,
         title: payload.title,
         body: payload.body,
-      });
+      };
+      this.gateway.emitToUser(uid, 'notification', json);
+      this.pushStream(uid, 'notification', json);
     }
 
     return { sent: userIds.length };

@@ -70,6 +70,64 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             commissionPreview,
         };
     }
+    async publicQuoteCheckout(planId, promoCode) {
+        const promo = promoCode?.trim()?.toUpperCase();
+        if (!promo)
+            throw new common_1.BadRequestException('Promo code is required');
+        await this.resolvePromoSeller(promo);
+        return this.quoteCheckout(planId, promo);
+    }
+    async adminQuoteCheckout(planId, promoCode) {
+        return this.publicQuoteCheckout(planId, promoCode);
+    }
+    async adminCreateOfflinePlanSale(adminUserId, dto) {
+        const plan = await this.planModel.findById(dto.planId).lean();
+        if (!plan)
+            throw new common_1.NotFoundException('Plan not found');
+        const promo = dto.promoCode?.trim()?.toUpperCase();
+        if (!promo)
+            throw new common_1.BadRequestException('Promo code is required');
+        const { sellerOid } = await this.resolvePromoSeller(promo);
+        const pricing = await this.resolvePlanPricing(plan, promo);
+        const email = dto.email.trim().toLowerCase();
+        const pay = await this.paymentModel.create({
+            payerUserId: sellerOid,
+            planId: new mongoose_2.Types.ObjectId(dto.planId),
+            amount: pricing.finalSubtotal,
+            currency: 'INR',
+            couponCode: promo,
+            provider: 'manual',
+            status: app_constants_1.PaymentStatus.COMPLETED,
+            externalId: `${dto.paymentMethod}_${Date.now()}`,
+            providerPayload: {
+                checkoutKind: 'admin_offline',
+                adminUserId,
+                paymentMethod: dto.paymentMethod,
+                paymentReference: dto.paymentReference?.trim() || null,
+                adminNote: dto.adminNote?.trim() || null,
+                sellerId: sellerOid.toString(),
+                affiliateSellerId: null,
+                fullName: dto.fullName.trim(),
+                email,
+                dateOfBirth: dto.dateOfBirth,
+                contactNumber: dto.contactNumber,
+                promoCode: promo,
+                planId: dto.planId,
+            },
+        });
+        const result = await this.completeSaleByPaymentId(pay._id.toString());
+        const noteParts = [
+            dto.adminNote?.trim(),
+            dto.paymentReference?.trim() ? `Payment ref: ${dto.paymentReference.trim()}` : null,
+            `Offline: ${dto.paymentMethod}`,
+        ].filter(Boolean);
+        if (noteParts.length && result.sale?._id) {
+            await this.saleModel.findByIdAndUpdate(result.sale._id, {
+                adminNote: noteParts.join(' · '),
+            });
+        }
+        return result;
+    }
     async getUpgradeOptions(buyerUserId) {
         const buyer = await this.usersService.findById(buyerUserId);
         if (!buyer?.accountActive || !buyer.planId) {
@@ -375,52 +433,106 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         }
         throw new common_1.BadRequestException('Invalid promo / referral code');
     }
+    async resolvePromoSeller(promoRaw) {
+        const promo = promoRaw?.trim()?.toUpperCase();
+        if (!promo)
+            throw new common_1.BadRequestException('Promo code is required');
+        const owner = await this.usersService.findByReferralCode(promo);
+        if (!owner)
+            throw new common_1.BadRequestException('Invalid promo / referral code');
+        this.assertMemberPromoOwnerActive(owner);
+        return { promo, sellerOid: owner._id, owner };
+    }
+    async initiateDeferredPlanCheckout(opts) {
+        const plan = await this.planModel.findById(opts.planId).lean();
+        if (!plan)
+            throw new common_1.NotFoundException('Plan not found');
+        const email = opts.email.trim().toLowerCase();
+        const promo = opts.promoCode?.trim()?.toUpperCase();
+        const pricing = await this.resolvePlanPricing(plan, promo);
+        const paymentOrder = await this.paymentGateway.createRazorpayLikeOrder(opts.sellerOid.toString(), pricing.finalSubtotal, { planId: opts.planId, couponCode: promo });
+        const payment = paymentOrder.payment;
+        await this.paymentModel.findByIdAndUpdate(payment._id, {
+            providerPayload: {
+                checkoutKind: opts.checkoutKind,
+                affiliateSellerId: opts.affiliateSellerId ?? null,
+                sellerId: opts.sellerOid.toString(),
+                fullName: opts.fullName.trim(),
+                email,
+                dateOfBirth: opts.dateOfBirth,
+                contactNumber: opts.contactNumber,
+                promoCode: promo ?? null,
+                planId: opts.planId,
+            },
+        });
+        return this.checkoutResponse(null, plan, paymentOrder, email, pricing);
+    }
+    async createSaleFromPaymentPayload(pay) {
+        const payload = pay.providerPayload;
+        if (!payload?.email || !payload?.planId) {
+            throw new common_1.BadRequestException('Checkout session expired. Please try again.');
+        }
+        const email = String(payload.email).trim().toLowerCase();
+        const planId = String(payload.planId);
+        const plan = await this.planModel.findById(planId).lean();
+        if (!plan)
+            throw new common_1.NotFoundException('Plan not found');
+        return this.saleModel.create({
+            sellerId: new mongoose_2.Types.ObjectId(String(payload.sellerId)),
+            buyerUserId: null,
+            planId: new mongoose_2.Types.ObjectId(planId),
+            fullName: String(payload.fullName),
+            email,
+            age: 0,
+            dateOfBirth: new Date(String(payload.dateOfBirth)),
+            contactNumber: String(payload.contactNumber),
+            promoCode: payload.promoCode ? String(payload.promoCode) : undefined,
+            status: plan_sale_schema_1.PlanSaleStatus.PENDING_PAYMENT,
+            paymentId: pay._id,
+        });
+    }
     async initiateAffiliateCheckout(sellerId, dto) {
-        const email = dto.email.trim().toLowerCase();
-        const existing = await this.usersService.findByEmail(email);
-        if (existing)
-            throw new common_1.ConflictException('Email already registered');
         const plan = await this.planModel.findById(dto.planId).lean();
         if (!plan)
             throw new common_1.NotFoundException('Plan not found');
         let sellerOid = new mongoose_2.Types.ObjectId(sellerId);
         const promo = dto.promoCode?.trim()?.toUpperCase();
         if (promo) {
-            const owner = await this.usersService.findByReferralCode(promo);
-            if (!owner)
-                throw new common_1.BadRequestException('Invalid promo / referral code');
-            this.assertMemberPromoOwnerActive(owner);
-            sellerOid = owner._id;
+            const resolved = await this.resolvePromoSeller(promo);
+            sellerOid = resolved.sellerOid;
         }
-        const tempPassword = (0, uuid_1.v4)().slice(0, 12);
-        const buyer = await this.usersService.createPlanBuyer({
-            name: dto.fullName.trim(),
-            email,
-            password: tempPassword,
-            sellerId: sellerOid.toString(),
+        return this.initiateDeferredPlanCheckout({
+            checkoutKind: 'affiliate',
+            affiliateSellerId: sellerId,
+            sellerOid,
             planId: dto.planId,
-            age: 0,
-            dateOfBirth: new Date(dto.dateOfBirth),
-            phone: dto.contactNumber,
-        });
-        const sale = await this.saleModel.create({
-            sellerId: sellerOid,
-            buyerUserId: buyer._id,
-            planId: new mongoose_2.Types.ObjectId(dto.planId),
-            fullName: dto.fullName.trim(),
-            email,
-            age: 0,
-            dateOfBirth: new Date(dto.dateOfBirth),
+            fullName: dto.fullName,
+            email: dto.email,
+            dateOfBirth: dto.dateOfBirth,
             contactNumber: dto.contactNumber,
             promoCode: promo,
-            status: plan_sale_schema_1.PlanSaleStatus.PENDING_PAYMENT,
-            buyerTempPassword: tempPassword,
         });
-        const pricing = await this.resolvePlanPricing(plan, promo);
-        const paymentOrder = await this.paymentGateway.createRazorpayLikeOrder(buyer._id.toString(), pricing.finalSubtotal, { planId: dto.planId, couponCode: promo });
-        sale.paymentId = paymentOrder.payment._id;
-        await sale.save();
-        return this.checkoutResponse(sale, plan, paymentOrder, email, pricing);
+    }
+    async initiateGuestCheckout(dto) {
+        const { promo, sellerOid } = await this.resolvePromoSeller(dto.promoCode);
+        return this.initiateDeferredPlanCheckout({
+            checkoutKind: 'guest',
+            sellerOid,
+            planId: dto.planId,
+            fullName: dto.fullName,
+            email: dto.email,
+            dateOfBirth: dto.dateOfBirth,
+            contactNumber: dto.contactNumber,
+            promoCode: promo,
+        });
+    }
+    async finalizeGuestCheckout(paymentId) {
+        const pay = await this.paymentModel.findById(paymentId).lean();
+        const kind = pay?.providerPayload?.checkoutKind;
+        if (!pay || kind !== 'guest') {
+            throw new common_1.BadRequestException('Invalid guest checkout session');
+        }
+        return this.completeSaleByPaymentId(paymentId);
     }
     async initiateSelfCheckout(buyerUserId, dto) {
         const plan = await this.plansService.resolvePlanOrThrow(dto.planTierId);
@@ -500,17 +612,44 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         }
         return this.checkoutResponse(sale, plan, paymentOrder, email, pricing);
     }
-    async finalizeCheckout(actorUserId, saleId, paymentId) {
-        const sale = await this.saleModel.findById(saleId).select('+buyerTempPassword').populate('planId', 'name price').exec();
-        if (!sale)
-            throw new common_1.NotFoundException('Sale not found');
-        const isBuyer = sale.buyerUserId.toString() === actorUserId;
-        const isSeller = sale.sellerId.toString() === actorUserId;
-        if (!isBuyer && !isSeller) {
-            throw new common_1.BadRequestException('Not allowed to finalize this sale');
+    async finalizeCheckout(actorUserId, paymentId, saleId) {
+        if (saleId) {
+            const sale = await this.saleModel
+                .findById(saleId)
+                .select('+buyerTempPassword')
+                .populate('planId', 'name price')
+                .exec();
+            if (!sale)
+                throw new common_1.NotFoundException('Sale not found');
+            const isBuyer = sale.buyerUserId?.toString() === actorUserId;
+            const isSeller = sale.sellerId.toString() === actorUserId;
+            if (!isBuyer && !isSeller) {
+                throw new common_1.BadRequestException('Not allowed to finalize this sale');
+            }
+            if (sale.paymentId?.toString() !== paymentId) {
+                throw new common_1.BadRequestException('Payment does not match this sale');
+            }
         }
-        if (sale.paymentId?.toString() !== paymentId) {
-            throw new common_1.BadRequestException('Payment does not match this sale');
+        else {
+            const selfSale = await this.saleModel
+                .findOne({
+                paymentId: new mongoose_2.Types.ObjectId(paymentId),
+                buyerUserId: new mongoose_2.Types.ObjectId(actorUserId),
+            })
+                .exec();
+            if (selfSale) {
+                return this.completeSaleByPaymentId(paymentId);
+            }
+            const pay = await this.paymentModel.findById(paymentId).lean();
+            const payload = pay?.providerPayload;
+            if (!payload || payload.checkoutKind !== 'affiliate') {
+                throw new common_1.BadRequestException('Checkout session not found');
+            }
+            const affiliateSellerId = String(payload.affiliateSellerId ?? '');
+            const sellerId = String(payload.sellerId ?? '');
+            if (affiliateSellerId !== actorUserId && sellerId !== actorUserId) {
+                throw new common_1.BadRequestException('Not allowed to finalize this checkout');
+            }
         }
         return this.completeSaleByPaymentId(paymentId);
     }
@@ -519,41 +658,193 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         if (!pay)
             throw new common_1.BadRequestException('Payment not found');
         const key = this.config.get('razorpay.keyId');
+        const paymentMock = this.config.get('razorpay.paymentMock') === true;
         if (key && pay.status !== app_constants_1.PaymentStatus.COMPLETED) {
             throw new common_1.BadRequestException('Payment not completed yet');
         }
-        if (!key && pay.status !== app_constants_1.PaymentStatus.COMPLETED) {
+        if (!key && paymentMock && pay.status !== app_constants_1.PaymentStatus.COMPLETED) {
             await this.paymentModel.findByIdAndUpdate(paymentId, { status: app_constants_1.PaymentStatus.COMPLETED }).exec();
             pay.status = app_constants_1.PaymentStatus.COMPLETED;
         }
-        const sale = await this.saleModel
+        if (!key && !paymentMock && pay.status !== app_constants_1.PaymentStatus.COMPLETED) {
+            throw new common_1.BadRequestException('Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET to backend .env.');
+        }
+        let sale = await this.saleModel
             .findOne({ paymentId: new mongoose_2.Types.ObjectId(paymentId) })
             .select('+buyerTempPassword')
             .populate('planId', 'name price promoPrice tierId')
             .exec();
+        if (!sale) {
+            sale = await this.createSaleFromPaymentPayload(pay);
+            sale = await this.saleModel
+                .findById(sale._id)
+                .select('+buyerTempPassword')
+                .populate('planId', 'name price promoPrice tierId')
+                .exec();
+        }
         if (!sale)
             throw new common_1.NotFoundException('Plan sale not found for this payment');
         if (sale.status === plan_sale_schema_1.PlanSaleStatus.PAID) {
-            const promo = await this.usersService.ensureReferralCode(sale.buyerUserId.toString());
+            const promo = sale.buyerUserId
+                ? await this.usersService.ensureReferralCode(sale.buyerUserId.toString())
+                : undefined;
             return {
                 alreadyPaid: true,
                 sale,
                 yourPromoCode: promo,
                 message: 'Plan already active.',
+                planActive: true,
             };
+        }
+        if (sale.status === plan_sale_schema_1.PlanSaleStatus.PAID_PENDING_APPROVAL) {
+            return {
+                alreadyPendingApproval: true,
+                sale,
+                message: 'Payment received. Awaiting admin approval to activate the plan.',
+                pendingAdminApproval: true,
+                planActive: false,
+                buyerCredentials: sale.buyerTempPassword
+                    ? {
+                        email: sale.email,
+                        temporaryPassword: sale.buyerTempPassword,
+                    }
+                    : undefined,
+            };
+        }
+        if (sale.status === plan_sale_schema_1.PlanSaleStatus.REJECTED) {
+            throw new common_1.BadRequestException('This plan sale was rejected by admin.');
         }
         const plan = sale.planId;
         const planOid = plan?._id ?? sale.planId;
-        const buyerId = sale.buyerUserId.toString();
         let loginPassword = '';
-        const buyer = await this.usersService.findById(buyerId);
-        if (!buyer?.accountActive) {
-            loginPassword = sale.buyerTempPassword || (0, uuid_1.v4)().slice(0, 12);
-            await this.usersService.activateAccount(buyerId, loginPassword);
-            if (!sale.buyerTempPassword) {
+        let buyerId;
+        if (!sale.buyerUserId) {
+            const existing = await this.usersService.findByEmail(sale.email);
+            if (existing?.accountActive && existing.planId) {
+                throw new common_1.ConflictException('Email already registered with an active plan');
+            }
+            if (existing?.accountActive && !existing.planId) {
+                buyerId = existing._id.toString();
+                loginPassword = sale.buyerTempPassword || (0, uuid_1.v4)().slice(0, 12);
+                await this.usersService.activateAccount(buyerId, loginPassword);
+                sale.buyerUserId = existing._id;
+                sale.buyerTempPassword = loginPassword;
+            }
+            else {
+                await this.usersService.deleteInactiveUserByEmail(sale.email);
+                loginPassword = sale.buyerTempPassword || (0, uuid_1.v4)().slice(0, 12);
+                const buyer = await this.usersService.create({
+                    name: sale.fullName,
+                    email: sale.email,
+                    password: loginPassword,
+                    referredBy: sale.sellerId,
+                    accountActive: true,
+                    planId: null,
+                    age: sale.age,
+                    dateOfBirth: sale.dateOfBirth,
+                    phone: sale.contactNumber,
+                });
+                sale.buyerUserId = buyer._id;
+                sale.buyerTempPassword = loginPassword;
+                buyerId = buyer._id.toString();
+            }
+        }
+        else {
+            buyerId = sale.buyerUserId.toString();
+            const buyer = await this.usersService.findById(buyerId);
+            if (!buyer?.accountActive) {
+                loginPassword = sale.buyerTempPassword || (0, uuid_1.v4)().slice(0, 12);
+                await this.usersService.activateAccount(buyerId, loginPassword);
                 sale.buyerTempPassword = loginPassword;
             }
         }
+        await this.usersService.updateProfileAfterPayment(buyerId, {
+            name: sale.fullName,
+            phone: sale.contactNumber,
+            age: sale.age,
+            dateOfBirth: sale.dateOfBirth,
+        });
+        sale.status = plan_sale_schema_1.PlanSaleStatus.PAID_PENDING_APPROVAL;
+        await sale.save();
+        void this.mail
+            .planSaleAwaitingAdminApproval(sale.email, sale.fullName, plan?.name || 'Plan', loginPassword || undefined)
+            .catch(() => undefined);
+        return {
+            sale,
+            plan: { _id: planOid, name: plan?.name, price: plan?.price },
+            message: `Payment received for "${plan?.name || 'membership'}". The buyer can log in; the plan activates after admin approval.`,
+            pendingAdminApproval: true,
+            planActive: false,
+            accountActive: true,
+            credentialsEmailed: true,
+            buyerCredentials: sale.buyerTempPassword
+                ? {
+                    email: sale.email,
+                    temporaryPassword: sale.buyerTempPassword,
+                    loginUrl: this.config.get('frontendUrl') || 'http://localhost:5173',
+                }
+                : undefined,
+        };
+    }
+    async adminDecidePlanSale(id, approve, adminNote) {
+        const sale = await this.saleModel
+            .findById(id)
+            .select('+buyerTempPassword')
+            .populate('planId', 'name price promoPrice tierId')
+            .exec();
+        if (!sale)
+            throw new common_1.NotFoundException('Plan sale not found');
+        if (sale.status === plan_sale_schema_1.PlanSaleStatus.PENDING_PAYMENT) {
+            throw new common_1.BadRequestException('Payment not confirmed yet. Confirm payment first.');
+        }
+        if (sale.status === plan_sale_schema_1.PlanSaleStatus.PAID) {
+            throw new common_1.BadRequestException('Plan is already active');
+        }
+        if (sale.status === plan_sale_schema_1.PlanSaleStatus.REJECTED) {
+            throw new common_1.BadRequestException('Plan sale already rejected');
+        }
+        if (sale.status !== plan_sale_schema_1.PlanSaleStatus.PAID_PENDING_APPROVAL) {
+            throw new common_1.BadRequestException('Invalid plan sale status');
+        }
+        sale.adminNote = adminNote?.trim() || sale.adminNote;
+        if (!approve) {
+            sale.status = plan_sale_schema_1.PlanSaleStatus.REJECTED;
+            await sale.save();
+            const plan = sale.planId;
+            void this.mail
+                .planSaleRejected(sale.email, sale.fullName, plan?.name || 'Plan', adminNote)
+                .catch(() => undefined);
+            return { rejected: true, sale, message: 'Plan sale rejected.' };
+        }
+        return this.activateApprovedPlanSale(sale);
+    }
+    countPendingApprovals() {
+        return this.saleModel.countDocuments({ status: plan_sale_schema_1.PlanSaleStatus.PAID_PENDING_APPROVAL }).exec();
+    }
+    findPendingApprovalForBuyer(userId) {
+        return this.saleModel
+            .findOne({
+            buyerUserId: new mongoose_2.Types.ObjectId(userId),
+            status: plan_sale_schema_1.PlanSaleStatus.PAID_PENDING_APPROVAL,
+        })
+            .populate('planId', 'name')
+            .lean()
+            .exec();
+    }
+    async activateApprovedPlanSale(sale) {
+        const pay = await this.paymentModel.findById(sale.paymentId).exec();
+        if (!pay)
+            throw new common_1.BadRequestException('Payment not found for this sale');
+        if (pay.status !== app_constants_1.PaymentStatus.COMPLETED) {
+            throw new common_1.BadRequestException('Payment must be completed before plan activation');
+        }
+        const plan = sale.planId;
+        const planOid = plan?._id ?? sale.planId;
+        if (!sale.buyerUserId) {
+            throw new common_1.BadRequestException('Buyer account missing for this sale');
+        }
+        const buyerId = sale.buyerUserId.toString();
+        let loginPassword = sale.buyerTempPassword || '';
         await this.usersService.updateProfileForSelfPlanPurchase(buyerId, {
             name: sale.fullName,
             phone: sale.contactNumber,
@@ -588,19 +879,11 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
         return {
             sale,
             plan: { _id: planOid, name: plan?.name, price: plan?.price },
-            message: `Plan "${plan?.name || 'membership'}" is now active. Login details sent to ${sale.email}.`,
-            accountActive: true,
+            message: `Plan "${plan?.name || 'membership'}" is now active.`,
+            planActive: true,
             yourPromoCode,
             promoUnlocked: true,
             credentialsEmailed: true,
-            buyerCredentials: loginPassword
-                ? {
-                    email: sale.email,
-                    temporaryPassword: loginPassword,
-                    promoCode: yourPromoCode,
-                    loginUrl: this.config.get('frontendUrl') || 'http://localhost:5173',
-                }
-                : undefined,
         };
     }
     async create(sellerId, dto) {
@@ -618,13 +901,13 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             .exec();
         if (!sale)
             throw new common_1.BadRequestException('Sale not found for this payment');
-        return this.finalizeCheckout(buyerUserId, sale._id.toString(), dto.paymentId);
+        return this.finalizeCheckout(buyerUserId, dto.paymentId, sale._id.toString());
     }
     checkoutResponse(sale, plan, paymentOrder, email, pricing) {
         const payment = paymentOrder.payment;
         const amountPaise = Math.round((payment.amount ?? plan.price) * 100);
         return {
-            sale,
+            sale: sale ?? undefined,
             plan: { _id: plan._id ?? plan, name: plan.name, price: plan.price },
             pricing: pricing
                 ? {
@@ -654,7 +937,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                 currency: 'INR',
             },
             buyerEmail: email,
-            message: 'Proceed to payment. Account activates automatically after successful payment.',
+            message: 'Proceed to Razorpay payment. Your details are saved only after successful payment.',
         };
     }
     sellerSaleFilter(sellerId, referralCode) {
@@ -713,7 +996,9 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                     phone: s.buyerUserId.phone,
                 }
                 : null,
-            password: s.buyerTempPassword || null,
+            password: s.status === plan_sale_schema_1.PlanSaleStatus.PAID || s.status === plan_sale_schema_1.PlanSaleStatus.PAID_PENDING_APPROVAL
+                ? s.buyerTempPassword || null
+                : null,
             createdAt: s.createdAt,
             updatedAt: s.updatedAt,
             source: s.sellerId?.toString() === sellerId ? 'direct_sale' : 'promo_code',
@@ -734,6 +1019,7 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
                 .populate('planId', 'name price')
                 .populate('sellerId', 'name email')
                 .populate('buyerUserId', 'name email accountActive')
+                .populate('paymentId', 'amount status provider externalId currency')
                 .lean(),
             this.saleModel.countDocuments(q),
         ]).then(([items, total]) => ({ items, total, page, limit }));
@@ -744,33 +1030,29 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             throw new common_1.NotFoundException();
         if (sale.status === plan_sale_schema_1.PlanSaleStatus.PAID)
             throw new common_1.BadRequestException('Already paid');
-        if (sale.paymentId) {
-            await this.paymentModel.findByIdAndUpdate(sale.paymentId, { status: app_constants_1.PaymentStatus.COMPLETED }).exec();
-            sale.adminNote = adminNote;
-            await sale.save();
-            return this.completeSaleByPaymentId(sale.paymentId.toString());
+        if (!sale.buyerTempPassword) {
+            sale.buyerTempPassword = (0, uuid_1.v4)().slice(0, 12);
         }
-        const tempPassword = sale.buyerTempPassword || (0, uuid_1.v4)().slice(0, 12);
-        await this.usersService.activateAccount(sale.buyerUserId.toString(), tempPassword);
-        sale.buyerTempPassword = tempPassword;
         sale.adminNote = adminNote;
         await sale.save();
-        if (!sale.paymentId) {
-            const plan = sale.planId;
-            const pay = await this.paymentModel.create({
-                payerUserId: sale.buyerUserId,
-                planId: sale.planId,
-                amount: plan?.price ?? 0,
-                currency: 'INR',
-                provider: 'manual',
-                status: app_constants_1.PaymentStatus.COMPLETED,
-                externalId: `manual_${Date.now()}`,
-            });
-            sale.paymentId = pay._id;
-            await sale.save();
-            return this.completeSaleByPaymentId(pay._id.toString());
+        if (sale.paymentId) {
+            await this.paymentModel.findByIdAndUpdate(sale.paymentId, { status: app_constants_1.PaymentStatus.COMPLETED }).exec();
+            return this.completeSaleByPaymentId(sale.paymentId.toString());
         }
-        return this.completeSaleByPaymentId(sale.paymentId.toString());
+        const plan = sale.planId;
+        const payerUserId = sale.buyerUserId ?? sale.sellerId;
+        const pay = await this.paymentModel.create({
+            payerUserId,
+            planId: sale.planId,
+            amount: plan?.price ?? 0,
+            currency: 'INR',
+            provider: 'manual',
+            status: app_constants_1.PaymentStatus.COMPLETED,
+            externalId: `manual_${Date.now()}`,
+        });
+        sale.paymentId = pay._id;
+        await sale.save();
+        return this.completeSaleByPaymentId(pay._id.toString());
     }
 };
 exports.PlanSalesService = PlanSalesService;

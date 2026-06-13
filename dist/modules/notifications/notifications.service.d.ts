@@ -47,6 +47,9 @@ export declare class NotificationsService {
     }> & {
         __v: number;
     }>;
+    markAllRead(userId: string): Promise<{
+        updated: number;
+    }>;
     broadcast(payload: {
         title: string;
         body: string;

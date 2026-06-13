@@ -13,6 +13,9 @@ export declare class NotificationsController {
     }> & {
         __v: number;
     }, {}, import("./notification.schema").NotificationDocument, "find", {}>;
+    markAllRead(user: any): Promise<{
+        updated: number;
+    }>;
     markRead(user: any, id: string): Promise<import("mongoose").Document<unknown, {}, import("./notification.schema").NotificationDocument, {}, {}> & import("./notification.schema").Notification & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {

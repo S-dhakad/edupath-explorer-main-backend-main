@@ -8,5 +8,7 @@ export declare class MailService {
     withdrawalPaid(email: string, name: string, amount: number, adminNote?: string): Promise<void>;
     withdrawalRejected(email: string, name: string, amount: number, adminNote?: string): Promise<void>;
     planSalePending(email: string, name: string, planName: string): Promise<void>;
+    planSaleAwaitingAdminApproval(email: string, name: string, planName: string, tempPassword?: string): Promise<void>;
+    planSaleRejected(email: string, name: string, planName: string, adminNote?: string): Promise<void>;
     planSaleActivated(email: string, name: string, planName: string, tempPassword: string, promoCode?: string): Promise<void>;
 }

@@ -77,7 +77,7 @@ let WithdrawalsService = WithdrawalsService_1 = class WithdrawalsService {
                     amount,
                     ...payout,
                     status: app_constants_1.WithdrawalStatus.PENDING,
-                    payoutProvider: 'razorpayx',
+                    payoutProvider: 'admin',
                 },
             ], txOpts);
             created = doc;
@@ -125,7 +125,7 @@ let WithdrawalsService = WithdrawalsService_1 = class WithdrawalsService {
             this.model.countDocuments(q),
         ]).then(([items, total]) => ({ items, total, page, limit }));
     }
-    async decide(id, approve, adminNote, adminId) {
+    async decide(id, approve, opts) {
         const doc = await this.model.findById(id).exec();
         if (!doc)
             throw new common_1.NotFoundException();
@@ -133,9 +133,46 @@ let WithdrawalsService = WithdrawalsService_1 = class WithdrawalsService {
             throw new common_1.BadRequestException('Already processed or payout in progress');
         }
         if (!approve) {
-            return this.finalizeRejected(doc, adminNote, adminId);
+            return this.finalizeRejected(doc, opts?.adminNote, opts?.adminId);
         }
-        return this.initiateBankPayout(doc, adminNote, adminId);
+        const mode = opts?.payoutMode ?? 'manual';
+        if (mode === 'razorpayx') {
+            return this.initiateBankPayout(doc, opts?.adminNote, opts?.adminId);
+        }
+        const method = opts?.paymentMethod?.trim();
+        if (!method) {
+            throw new common_1.BadRequestException('Select a payment method (cash, UPI, etc.)');
+        }
+        return this.markPaidManually(doc, method, opts?.paymentReference, opts?.adminNote, opts?.adminId);
+    }
+    async markPaidManually(doc, paymentMethod, paymentReference, adminNote, adminId) {
+        const id = doc._id.toString();
+        const uid = doc.userId.toString();
+        const ref = paymentReference?.trim();
+        const noteParts = [
+            adminNote?.trim(),
+            ref ? `Ref: ${ref}` : null,
+            `Paid via ${paymentMethod.replace(/_/g, ' ')}`,
+        ].filter(Boolean);
+        await (0, mongo_transaction_util_1.runOptionalTransaction)(this.connection, async (session) => {
+            await this.walletRepo.finalizeWithdrawal(uid, doc.amount, id, true, session);
+            doc.status = app_constants_1.WithdrawalStatus.APPROVED;
+            doc.paidAt = new Date();
+            doc.payoutProvider = 'manual';
+            doc.manualPaymentMethod = paymentMethod;
+            doc.manualPaymentReference = ref || undefined;
+            doc.adminNote = noteParts.join(' · ') || doc.adminNote;
+            doc.payoutProviderStatus = 'manual_paid';
+            if (adminId)
+                doc.processedBy = new mongoose_2.Types.ObjectId(adminId);
+            await doc.save(session ? { session } : {});
+        });
+        void this.notifyWithdrawalOutcome(uid, id, doc.amount, app_constants_1.WithdrawalStatus.APPROVED, doc.adminNote);
+        const u = await this.userModel.findById(uid).select('name email').lean();
+        if (u?.email) {
+            void this.mail.withdrawalPaid(u.email, u.name || 'User', doc.amount, doc.adminNote);
+        }
+        return doc;
     }
     async initiateBankPayout(doc, adminNote, adminId) {
         const id = doc._id.toString();
@@ -165,6 +202,7 @@ let WithdrawalsService = WithdrawalsService_1 = class WithdrawalsService {
             throw new common_1.BadRequestException(msg);
         }
         doc.status = app_constants_1.WithdrawalStatus.PROCESSING;
+        doc.payoutProvider = 'razorpayx';
         doc.adminNote = adminNote;
         doc.payoutInitiatedAt = new Date();
         doc.razorpayContactId = payoutResult.contactId;
