@@ -259,6 +259,10 @@ export class UsersService {
     return this.userModel.find({ referredBy: new Types.ObjectId(userId) }).exec();
   }
 
+  async countReferrals(userId: string): Promise<number> {
+    return this.userModel.countDocuments({ referredBy: new Types.ObjectId(userId) }).exec();
+  }
+
   async listReferralTree(userId: string, depth = 3): Promise<any> {
     const root = await this.findById(userId);
     if (!root) throw new NotFoundException('User not found');

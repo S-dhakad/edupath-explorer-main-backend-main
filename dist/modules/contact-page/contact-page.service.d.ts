@@ -1,8 +1,11 @@
 import { Model } from 'mongoose';
 import { ContactPage, ContactPageDocument } from './contact-page.schema';
+import { ContactInquiry, ContactInquiryDocument } from './contact-inquiry.schema';
+import { SubmitContactInquiryDto } from './dto/submit-contact-inquiry.dto';
 export declare class ContactPageService {
     private model;
-    constructor(model: Model<ContactPageDocument>);
+    private inquiryModel;
+    constructor(model: Model<ContactPageDocument>, inquiryModel: Model<ContactInquiryDocument>);
     private ensureDefault;
     getPublic(): Promise<{
         badgeText: any;
@@ -46,4 +49,27 @@ export declare class ContactPageService {
         faqButtonLabel: any;
     }>;
     private toPayload;
+    submitInquiry(dto: SubmitContactInquiryDto): Promise<{
+        ok: boolean;
+        id: string;
+        message: string;
+    }>;
+    listInquiries(opts: {
+        page?: number;
+        limit?: number;
+    }): Promise<{
+        items: (import("mongoose").FlattenMaps<import("mongoose").Document<unknown, {}, ContactInquiry, {}, {}> & ContactInquiry & {
+            _id: import("mongoose").Types.ObjectId;
+        } & {
+            __v: number;
+        }> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }>)[];
+        total: number;
+        page: number;
+        limit: number;
+    }>;
+    deleteInquiry(id: string): Promise<{
+        ok: boolean;
+    }>;
 }

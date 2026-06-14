@@ -121,21 +121,28 @@ let UsersController = class UsersController {
             throw new common_1.NotFoundException('User not found');
         return { user: updated };
     }
-    async getDashboard(req) {
+    async getDashboard(req, lite) {
+        const isLite = lite === '1' || lite === 'true';
         const userId = req.user._id.toString();
         const user = await this.usersService.findById(userId);
         if (!user)
             return { error: 'User not found' };
-        const [referrals, myPurchases, affiliateSales, wallet, summary, kycStatus, pendingPlanSale] = await Promise.all([
-            this.usersService.getReferrals(userId),
-            this.purchasesService.findByUser(userId),
-            user.referralCode ? this.purchasesService.findByCoupon(user.referralCode) : Promise.resolve([]),
+        const [referrals, referralsCountLite, myPurchases, affiliateSales, wallet, summary, kycStatus, pendingPlanSale] = await Promise.all([
+            isLite ? Promise.resolve([]) : this.usersService.getReferrals(userId),
+            isLite ? this.usersService.countReferrals(userId) : Promise.resolve(0),
+            isLite ? Promise.resolve([]) : this.purchasesService.findByUser(userId),
+            isLite || !user.referralCode
+                ? Promise.resolve([])
+                : this.purchasesService.findByCoupon(user.referralCode),
             this.walletService.getOrCreate(userId),
             this.analyticsService.dashboardSummary(userId),
             this.kycService.getStatus(userId),
             this.planSalesService.findPendingApprovalForBuyer(userId),
         ]);
-        const conversionRate = referrals.length > 0 ? Math.min(100, (affiliateSales.length / referrals.length) * 100) : 0;
+        const referralsCount = isLite ? referralsCountLite : referrals.length;
+        const conversionRate = isLite || referralsCount === 0
+            ? 0
+            : Math.min(100, (affiliateSales.length / referralsCount) * 100);
         const mediaBase = this.config.get('media.publicBase') || '';
         let planCourses = [];
         let planName = null;
@@ -144,19 +151,29 @@ let UsersController = class UsersController {
             const planOid = user.planId;
             const plan = await this.plansService.findById(planOid.toString());
             planName = plan?.name ?? null;
-            const courses = await this.plansService.findPublishedCoursesForMembership(planOid);
-            const cats = await this.categoriesService.findAll();
-            const catById = new Map(cats.map((c) => [c._id.toString(), c]));
-            planCourses = courses.map((c) => {
-                const cat = catById.get(c.categoryId?.toString?.());
-                return (0, course_mapper_1.mapCourseToExplorerDto)(c, cat?.name || 'General', mediaBase, cat?.imageUrl);
-            });
-            if (plan) {
+            if (!isLite) {
+                const courses = await this.plansService.findPublishedCoursesForMembership(planOid);
+                const cats = await this.categoriesService.findAll();
+                const catById = new Map(cats.map((c) => [c._id.toString(), c]));
+                planCourses = courses.map((c) => {
+                    const cat = catById.get(c.categoryId?.toString?.());
+                    return (0, course_mapper_1.mapCourseToExplorerDto)(c, cat?.name || 'General', mediaBase, cat?.imageUrl);
+                });
+                if (plan) {
+                    activeMembership = {
+                        planId: plan._id.toString(),
+                        planName: plan.name,
+                        tierId: plan.tierId,
+                        courseCount: courses.length,
+                    };
+                }
+            }
+            else if (plan) {
                 activeMembership = {
                     planId: plan._id.toString(),
                     planName: plan.name,
                     tierId: plan.tierId,
-                    courseCount: courses.length,
+                    courseCount: 0,
                 };
             }
         }
@@ -170,12 +187,12 @@ let UsersController = class UsersController {
                 }
                 : null,
             activeMembership,
-            referrals: referrals.length,
-            referralList: referrals,
-            myPurchases,
-            planCourses,
+            referrals: referralsCount,
+            referralList: isLite ? [] : referrals,
+            myPurchases: isLite ? [] : myPurchases,
+            planCourses: isLite ? [] : planCourses,
             planName,
-            affiliateSales,
+            affiliateSales: isLite ? [] : affiliateSales,
             wallet,
             conversionRate: Math.round(conversionRate * 100) / 100,
             ...summary,
@@ -225,8 +242,9 @@ __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, swagger_1.ApiBearerAuth)(),
     __param(0, (0, common_1.Request)()),
+    __param(1, (0, common_1.Query)('lite')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [Object, String]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "getDashboard", null);
 exports.UsersController = UsersController = __decorate([

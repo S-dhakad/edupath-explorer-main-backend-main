@@ -47,7 +47,7 @@ export declare class UsersController {
     }): Promise<{
         user: import("./user.schema").UserDocument;
     }>;
-    getDashboard(req: any): Promise<{
+    getDashboard(req: any, lite?: string): Promise<{
         error: string;
     } | {
         totalIncome: number;
@@ -76,8 +76,8 @@ export declare class UsersController {
             courseCount: number;
         };
         referrals: number;
-        referralList: import("./user.schema").UserDocument[];
-        myPurchases: import("../purchases/purchase.schema").Purchase[];
+        referralList: any[];
+        myPurchases: any[];
         planCourses: import("../public/course-mapper").ExplorerCourseDto[];
         planName: string;
         affiliateSales: any[];

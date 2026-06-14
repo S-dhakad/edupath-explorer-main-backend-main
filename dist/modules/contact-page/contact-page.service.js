@@ -17,10 +17,12 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const contact_page_schema_1 = require("./contact-page.schema");
+const contact_inquiry_schema_1 = require("./contact-inquiry.schema");
 const contact_page_defaults_1 = require("./contact-page.defaults");
 let ContactPageService = class ContactPageService {
-    constructor(model) {
+    constructor(model, inquiryModel) {
         this.model = model;
+        this.inquiryModel = inquiryModel;
     }
     async ensureDefault() {
         const existing = await this.model.findOne({ key: 'default' }).lean();
@@ -57,11 +59,42 @@ let ContactPageService = class ContactPageService {
             faqButtonLabel: doc.faqButtonLabel ?? contact_page_defaults_1.DEFAULT_CONTACT_PAGE.faqButtonLabel,
         };
     }
+    async submitInquiry(dto) {
+        const inquiry = await this.inquiryModel.create({
+            name: dto.name.trim(),
+            email: dto.email.trim().toLowerCase(),
+            phone: dto.phone?.trim() ?? '',
+            topic: dto.topic.trim(),
+            message: dto.message.trim(),
+            status: 'new',
+        });
+        return {
+            ok: true,
+            id: inquiry._id.toString(),
+            message: 'Thank you for your message. Our team will respond shortly.',
+        };
+    }
+    async listInquiries(opts) {
+        const page = Math.max(1, opts.page ?? 1);
+        const limit = Math.min(100, Math.max(1, opts.limit ?? 20));
+        const skip = (page - 1) * limit;
+        const [items, total] = await Promise.all([
+            this.inquiryModel.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            this.inquiryModel.countDocuments(),
+        ]);
+        return { items, total, page, limit };
+    }
+    async deleteInquiry(id) {
+        await this.inquiryModel.findByIdAndDelete(id).exec();
+        return { ok: true };
+    }
 };
 exports.ContactPageService = ContactPageService;
 exports.ContactPageService = ContactPageService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(contact_page_schema_1.ContactPage.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __param(1, (0, mongoose_1.InjectModel)(contact_inquiry_schema_1.ContactInquiry.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model])
 ], ContactPageService);
 //# sourceMappingURL=contact-page.service.js.map

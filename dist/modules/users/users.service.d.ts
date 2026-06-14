@@ -64,6 +64,7 @@ export declare class UsersService {
     findWithRefreshHash(id: string): Promise<UserDocument | null>;
     updateIncome(userId: string, active: number, passive: number, session?: any): Promise<void>;
     getReferrals(userId: string): Promise<UserDocument[]>;
+    countReferrals(userId: string): Promise<number>;
     listReferralTree(userId: string, depth?: number): Promise<any>;
     adminList(query: {
         page?: number;

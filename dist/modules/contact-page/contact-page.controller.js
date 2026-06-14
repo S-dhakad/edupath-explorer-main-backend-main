@@ -21,12 +21,25 @@ const jwt_auth_guard_1 = require("../auth/jwt-auth.guard");
 const roles_guard_1 = require("../../common/guards/roles.guard");
 const roles_decorator_1 = require("../../common/decorators/roles.decorator");
 const app_constants_1 = require("../../common/constants/app.constants");
+const submit_contact_inquiry_dto_1 = require("./dto/submit-contact-inquiry.dto");
 let ContactPageController = class ContactPageController {
     constructor(svc) {
         this.svc = svc;
     }
     publicGet() {
         return this.svc.getPublic();
+    }
+    submitInquiry(body) {
+        return this.svc.submitInquiry(body);
+    }
+    adminListInquiries(page, limit) {
+        return this.svc.listInquiries({
+            page: parseInt(page || '1', 10),
+            limit: parseInt(limit || '20', 10),
+        });
+    }
+    adminDeleteInquiry(id) {
+        return this.svc.deleteInquiry(id);
     }
     adminGet() {
         return this.svc.getAdmin();
@@ -43,6 +56,34 @@ __decorate([
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], ContactPageController.prototype, "publicGet", null);
+__decorate([
+    (0, common_1.Post)('public/contact-inquiry'),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [submit_contact_inquiry_dto_1.SubmitContactInquiryDto]),
+    __metadata("design:returntype", void 0)
+], ContactPageController.prototype, "submitInquiry", null);
+__decorate([
+    (0, common_1.Get)('admin/contact-inquiries'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(app_constants_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Query)('page')),
+    __param(1, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], ContactPageController.prototype, "adminListInquiries", null);
+__decorate([
+    (0, common_1.Delete)('admin/contact-inquiries/:id'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(app_constants_1.UserRole.ADMIN),
+    (0, swagger_1.ApiBearerAuth)(),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ContactPageController.prototype, "adminDeleteInquiry", null);
 __decorate([
     (0, common_1.Get)('admin/contact-page'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),

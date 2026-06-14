@@ -670,11 +670,14 @@ export class PlanSalesService {
       : new Types.ObjectId(this.config.get<string>('platform.userId') || '000000000000000000000000');
 
     let promo = dto.promoCode?.trim()?.toUpperCase();
-    if (promo) {
+    const ownCode = (buyer as any).referralCode?.trim()?.toUpperCase();
+    const isOwnPromo = Boolean(promo && ownCode && promo === ownCode);
+
+    if (promo && !isOwnPromo) {
       const validated = await this.usersService.validateReferralCodeForCheckout(promo, buyerUserId);
       const owner = await this.usersService.findByReferralCode(validated.code);
       sellerOid = (owner as any)._id;
-    } else if (buyer.referredBy) {
+    } else if (!isOwnPromo && buyer.referredBy) {
       const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
       if (uplineUser && (uplineUser as any).referralCode) {
         promo = (uplineUser as any).referralCode;

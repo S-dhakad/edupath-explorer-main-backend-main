@@ -545,12 +545,14 @@ let PlanSalesService = PlanSalesService_1 = class PlanSalesService {
             ? buyer.referredBy
             : new mongoose_2.Types.ObjectId(this.config.get('platform.userId') || '000000000000000000000000');
         let promo = dto.promoCode?.trim()?.toUpperCase();
-        if (promo) {
+        const ownCode = buyer.referralCode?.trim()?.toUpperCase();
+        const isOwnPromo = Boolean(promo && ownCode && promo === ownCode);
+        if (promo && !isOwnPromo) {
             const validated = await this.usersService.validateReferralCodeForCheckout(promo, buyerUserId);
             const owner = await this.usersService.findByReferralCode(validated.code);
             sellerOid = owner._id;
         }
-        else if (buyer.referredBy) {
+        else if (!isOwnPromo && buyer.referredBy) {
             const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
             if (uplineUser && uplineUser.referralCode) {
                 promo = uplineUser.referralCode;

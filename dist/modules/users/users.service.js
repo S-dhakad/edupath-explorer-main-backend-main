@@ -237,6 +237,9 @@ let UsersService = class UsersService {
     async getReferrals(userId) {
         return this.userModel.find({ referredBy: new mongoose_2.Types.ObjectId(userId) }).exec();
     }
+    async countReferrals(userId) {
+        return this.userModel.countDocuments({ referredBy: new mongoose_2.Types.ObjectId(userId) }).exec();
+    }
     async listReferralTree(userId, depth = 3) {
         const root = await this.findById(userId);
         if (!root)

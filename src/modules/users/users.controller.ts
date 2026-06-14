@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Query,
   UseGuards,
   Request,
   Inject,
@@ -160,23 +161,32 @@ export class UsersController {
   @Get('dashboard')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
-  async getDashboard(@Request() req) {
+  async getDashboard(@Request() req, @Query('lite') lite?: string) {
+    const isLite = lite === '1' || lite === 'true';
     const userId = req.user._id.toString();
     const user = await this.usersService.findById(userId);
     if (!user) return { error: 'User not found' };
-    const [referrals, myPurchases, affiliateSales, wallet, summary, kycStatus, pendingPlanSale] =
+
+    const [referrals, referralsCountLite, myPurchases, affiliateSales, wallet, summary, kycStatus, pendingPlanSale] =
       await Promise.all([
-      this.usersService.getReferrals(userId),
-      this.purchasesService.findByUser(userId),
-      user.referralCode ? this.purchasesService.findByCoupon(user.referralCode) : Promise.resolve([]),
+      isLite ? Promise.resolve([]) : this.usersService.getReferrals(userId),
+      isLite ? this.usersService.countReferrals(userId) : Promise.resolve(0),
+      isLite ? Promise.resolve([]) : this.purchasesService.findByUser(userId),
+      isLite || !user.referralCode
+        ? Promise.resolve([])
+        : this.purchasesService.findByCoupon(user.referralCode),
       this.walletService.getOrCreate(userId),
       this.analyticsService.dashboardSummary(userId),
       this.kycService.getStatus(userId),
       this.planSalesService.findPendingApprovalForBuyer(userId),
     ]);
 
+    const referralsCount = isLite ? referralsCountLite : referrals.length;
+
     const conversionRate =
-      referrals.length > 0 ? Math.min(100, (affiliateSales.length / referrals.length) * 100) : 0;
+      isLite || referralsCount === 0
+        ? 0
+        : Math.min(100, (affiliateSales.length / referralsCount) * 100);
 
     const mediaBase = this.config.get<string>('media.publicBase') || '';
     let planCourses: ReturnType<typeof mapCourseToExplorerDto>[] = [];
@@ -192,24 +202,33 @@ export class UsersController {
       const planOid = user.planId as Types.ObjectId;
       const plan = await this.plansService.findById(planOid.toString());
       planName = plan?.name ?? null;
-      const courses = await this.plansService.findPublishedCoursesForMembership(planOid);
-      const cats = await this.categoriesService.findAll();
-      const catById = new Map(cats.map((c) => [c._id.toString(), c]));
-      planCourses = courses.map((c) => {
-        const cat = catById.get((c as any).categoryId?.toString?.());
-        return mapCourseToExplorerDto(
-          c as any,
-          cat?.name || 'General',
-          mediaBase,
-          cat?.imageUrl,
-        );
-      });
-      if (plan) {
+      if (!isLite) {
+        const courses = await this.plansService.findPublishedCoursesForMembership(planOid);
+        const cats = await this.categoriesService.findAll();
+        const catById = new Map(cats.map((c) => [c._id.toString(), c]));
+        planCourses = courses.map((c) => {
+          const cat = catById.get((c as any).categoryId?.toString?.());
+          return mapCourseToExplorerDto(
+            c as any,
+            cat?.name || 'General',
+            mediaBase,
+            cat?.imageUrl,
+          );
+        });
+        if (plan) {
+          activeMembership = {
+            planId: (plan as any)._id.toString(),
+            planName: plan.name,
+            tierId: (plan as any).tierId,
+            courseCount: courses.length,
+          };
+        }
+      } else if (plan) {
         activeMembership = {
           planId: (plan as any)._id.toString(),
           planName: plan.name,
           tierId: (plan as any).tierId,
-          courseCount: courses.length,
+          courseCount: 0,
         };
       }
     }
@@ -224,12 +243,12 @@ export class UsersController {
           }
         : null,
       activeMembership,
-      referrals: referrals.length,
-      referralList: referrals,
-      myPurchases,
-      planCourses,
+      referrals: referralsCount,
+      referralList: isLite ? [] : referrals,
+      myPurchases: isLite ? [] : myPurchases,
+      planCourses: isLite ? [] : planCourses,
       planName,
-      affiliateSales,
+      affiliateSales: isLite ? [] : affiliateSales,
       wallet,
       conversionRate: Math.round(conversionRate * 100) / 100,
       ...summary,

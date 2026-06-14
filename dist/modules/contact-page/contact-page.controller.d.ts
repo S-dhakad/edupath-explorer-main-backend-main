@@ -1,5 +1,6 @@
 import { ContactPageService } from './contact-page.service';
 import { ContactPage } from './contact-page.schema';
+import { SubmitContactInquiryDto } from './dto/submit-contact-inquiry.dto';
 export declare class ContactPageController {
     private svc;
     constructor(svc: ContactPageService);
@@ -14,6 +15,26 @@ export declare class ContactPageController {
         office: any;
         responseTimeText: any;
         faqButtonLabel: any;
+    }>;
+    submitInquiry(body: SubmitContactInquiryDto): Promise<{
+        ok: boolean;
+        id: string;
+        message: string;
+    }>;
+    adminListInquiries(page?: string, limit?: string): Promise<{
+        items: (import("mongoose").FlattenMaps<import("mongoose").Document<unknown, {}, import("./contact-inquiry.schema").ContactInquiry, {}, {}> & import("./contact-inquiry.schema").ContactInquiry & {
+            _id: import("mongoose").Types.ObjectId;
+        } & {
+            __v: number;
+        }> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }>)[];
+        total: number;
+        page: number;
+        limit: number;
+    }>;
+    adminDeleteInquiry(id: string): Promise<{
+        ok: boolean;
     }>;
     adminGet(): Promise<(import("mongoose").Document<unknown, {}, import("mongoose").Document<unknown, {}, ContactPage, {}, {}> & ContactPage & {
         _id: import("mongoose").Types.ObjectId;
