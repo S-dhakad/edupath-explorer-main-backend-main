@@ -73,7 +73,7 @@ const DUMMY_USERS: DummyUserDef[] = [
     email: 'jamilkhan786@gmail.com',
     referralCode: 'JAMIL78601',
     phone: '9669132900',
-    password: 'Jamil786!',
+    password: 'Jamil786',
     planName: 'Basic',
   },
 ];
@@ -144,20 +144,37 @@ async function run() {
     }
   }
 
-  const adminEmail = 'admin@edupath.local';
+  const adminEmail = 'admin@startsuccess.in';
+  const adminPassword = 'Admin123!';
   let admin = await userModel.findOne({ email: adminEmail });
+  const adminHash = await bcrypt.hash(adminPassword, 10);
   if (!admin) {
-    const hash = await bcrypt.hash('Admin123!', 10);
     admin = await userModel.create({
       name: 'Platform Admin',
       email: adminEmail,
-      password: hash,
+      password: adminHash,
       referralCode: 'ADMINSEED1',
       role: UserRole.ADMIN,
       emailVerified: true,
+      accountActive: true,
     });
-    // eslint-disable-next-line no-console
-    console.log('Created admin:', adminEmail, '/ Admin123!');
+    console.log('Created admin:', adminEmail);
+  } else {
+    await userModel.updateOne(
+      { _id: admin._id },
+      {
+        $set: {
+          name: 'Platform Admin',
+          password: adminHash,
+          referralCode: 'ADMINSEED1',
+          role: UserRole.ADMIN,
+          emailVerified: true,
+          accountActive: true,
+        },
+      },
+    );
+    admin = (await userModel.findById(admin._id))!;
+    console.log('Updated admin:', adminEmail);
   }
 
   const demoHash = await bcrypt.hash(DEMO_PASSWORD, 10);
@@ -459,7 +476,7 @@ async function run() {
   // eslint-disable-next-line no-console
   console.log('Email:    ', adminEmail);
   // eslint-disable-next-line no-console
-  console.log('Password: ', 'Admin123!');
+  console.log('Password: ', adminPassword);
   // eslint-disable-next-line no-console
   console.log('Promo:    ', 'ADMINSEED1 (admin referral code)\n');
 
