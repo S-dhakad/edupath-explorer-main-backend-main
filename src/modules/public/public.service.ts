@@ -14,7 +14,6 @@ import { Course, CourseDocument } from '../courses/course.schema';
 import { Category, CategoryDocument } from '../categories/category.schema';
 import { mapCourseToExplorerDto, ExplorerCourseDto } from './course-mapper';
 import { PatchLandingPricingDto } from './dto/patch-landing-pricing.dto';
-import { PutLandingFeaturedDto, LANDING_FEATURED_MAX } from './dto/put-landing-featured.dto';
 import { PlansService } from '../plans/plans.service';
 import {
   DEFAULT_LANDING_HERO,
@@ -48,25 +47,24 @@ export class PublicService {
     return doc;
   }
 
-  private async categoryMetaMap(): Promise<Map<string, { name: string; imageUrl?: string }>> {
+  private async categoryNameMap(): Promise<Map<string, string>> {
     const cats = await this.categoryModel.find().lean();
-    const m = new Map<string, { name: string; imageUrl?: string }>();
+    const m = new Map<string, string>();
     for (const c of cats as any[]) {
-      m.set(c._id.toString(), { name: c.name, imageUrl: c.imageUrl });
+      m.set(c._id.toString(), c.name);
     }
     return m;
   }
 
   async getHeroPayload() {
     const landing = await this.ensureLandingDoc();
-    const catMap = await this.categoryMetaMap();
+    const catMap = await this.categoryNameMap();
 
     const mediaBase = this.config.get<string>('media.publicBase') || '';
 
     let featured = await this.courseModel
       .find({ isPublished: true, featuredOnHero: true })
       .sort({ heroOrder: 1, createdAt: -1 })
-      .limit(LANDING_FEATURED_MAX)
       .lean()
       .exec();
 
@@ -74,15 +72,18 @@ export class PublicService {
       featured = await this.courseModel
         .find({ isPublished: true })
         .sort({ salesCount: -1, heroOrder: -1, createdAt: -1 })
-        .limit(LANDING_FEATURED_MAX)
+        .limit(8)
         .lean()
         .exec();
     }
 
-    const courses: ExplorerCourseDto[] = (featured as any[]).map((c) => {
-      const meta = catMap.get((c.categoryId as Types.ObjectId)?.toString());
-      return mapCourseToExplorerDto(c, meta?.name || '', mediaBase, meta?.imageUrl);
-    });
+    const courses: ExplorerCourseDto[] = (featured as any[]).map((c) =>
+      mapCourseToExplorerDto(
+        c,
+        catMap.get((c.categoryId as Types.ObjectId)?.toString()) || '',
+        mediaBase,
+      ),
+    );
 
     return {
       slides: landing.slides?.length ? landing.slides : DEFAULT_LANDING_HERO.slides,
@@ -102,10 +103,10 @@ export class PublicService {
       .lean()
       .exec();
     if (!c) throw new NotFoundException('Course not found');
-    const catMap = await this.categoryMetaMap();
-    const meta = catMap.get((c as any).categoryId?.toString?.());
+    const catMap = await this.categoryNameMap();
+    const name = catMap.get((c as any).categoryId?.toString?.()) || '';
     const mediaBase = this.config.get<string>('media.publicBase') || '';
-    return mapCourseToExplorerDto(c as any, meta?.name || '', mediaBase, meta?.imageUrl);
+    return mapCourseToExplorerDto(c as any, name, mediaBase);
   }
 
   /** All published courses for the public catalog (`GET /public/courses`). */
@@ -115,17 +116,11 @@ export class PublicService {
       .sort({ salesCount: -1, createdAt: -1 })
       .lean()
       .exec();
-    const catMap = await this.categoryMetaMap();
+    const catMap = await this.categoryNameMap();
     const mediaBase = this.config.get<string>('media.publicBase') || '';
-    return (list as any[]).map((c) => {
-      const meta = catMap.get((c.categoryId as Types.ObjectId)?.toString());
-      return mapCourseToExplorerDto(
-        c,
-        meta?.name || 'General',
-        mediaBase,
-        meta?.imageUrl,
-      );
-    });
+    return (list as any[]).map((c) =>
+      mapCourseToExplorerDto(c, catMap.get((c.categoryId as Types.ObjectId)?.toString()) || 'General', mediaBase),
+    );
   }
 
   async updateLandingHero(patch: Partial<LandingHero>) {
@@ -133,42 +128,6 @@ export class PublicService {
     return this.landingModel
       .findOneAndUpdate({ key: 'default' }, { $set: rest }, { new: true, upsert: true })
       .exec();
-  }
-
-  async getLandingFeaturedAdmin() {
-    const items = await this.courseModel
-      .find({ featuredOnHero: true })
-      .sort({ heroOrder: 1, createdAt: -1 })
-      .limit(LANDING_FEATURED_MAX)
-      .select('title slug thumbnailUrl isPublished heroOrder featuredOnHero')
-      .lean()
-      .exec();
-    return { items, max: LANDING_FEATURED_MAX };
-  }
-
-  async setLandingFeatured(courseIds: string[]) {
-    const unique = [...new Set(courseIds)];
-    if (unique.length !== courseIds.length) {
-      throw new BadRequestException('Duplicate course IDs are not allowed');
-    }
-    if (unique.length) {
-      const valid = await this.courseModel
-        .find({ _id: { $in: unique }, isPublished: true })
-        .select('_id')
-        .lean()
-        .exec();
-      if (valid.length !== unique.length) {
-        throw new BadRequestException('All featured courses must exist and be published');
-      }
-    }
-
-    await this.courseModel.updateMany({}, { $set: { featuredOnHero: false, heroOrder: 0 } }).exec();
-    for (let i = 0; i < unique.length; i++) {
-      await this.courseModel
-        .updateOne({ _id: unique[i] }, { $set: { featuredOnHero: true, heroOrder: i } })
-        .exec();
-    }
-    return this.getLandingFeaturedAdmin();
   }
 
   private isVisibleOnLanding(tier: LandingPricingTier): boolean {

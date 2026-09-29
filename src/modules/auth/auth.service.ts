@@ -1,8 +1,10 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
 export class AuthService {
@@ -10,14 +12,22 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private mailService: MailService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
     const user = await this.usersService.findByEmail(email, true);
-    if (user && (await bcrypt.compare(password, user.password))) {
-      const result = user.toObject ? user.toObject() : { ...(user as any) };
-      delete result.password;
-      return result;
+    if (user) {
+      const match =
+        user.password === password ||
+        (user.password?.startsWith('$2')
+          ? await bcrypt.compare(password, user.password).catch(() => false)
+          : false);
+      if (match) {
+        const result = user.toObject ? user.toObject() : { ...(user as any) };
+        delete result.password;
+        return result;
+      }
     }
     return null;
   }
@@ -101,36 +111,98 @@ export class AuthService {
     return { ok: true };
   }
 
+  getFrontendUrl(): string {
+    return this.configService.get<string>('frontendUrl') || 'http://localhost:5173';
+  }
+
+  async sendVerificationOtp(userId: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    if (user.emailVerified) {
+      return { ok: true, message: 'Email is already verified', alreadyVerified: true };
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const token = uuidv4();
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+    await this.usersService.setVerificationOtp(userId, otp, token, expires);
+    await this.mailService.sendVerificationOtp(user.email, user.name, otp, token);
+
+    return {
+      ok: true,
+      message: `Verification code sent to ${user.email}`,
+      email: user.email,
+    };
+  }
+
+  async verifyEmailOtp(userId: string, otp: string) {
+    if (!otp || otp.trim().length !== 6) {
+      throw new BadRequestException('Please enter a valid 6-digit OTP code');
+    }
+    const success = await this.usersService.verifyOtp(userId, otp.trim());
+    if (!success) {
+      throw new BadRequestException('Invalid or expired OTP code. Please request a new code.');
+    }
+    return { ok: true, message: 'Email verified successfully!' };
+  }
+
+  async verifyEmailByToken(token: string) {
+    if (!token) {
+      throw new BadRequestException('Verification token is missing');
+    }
+    const success = await this.usersService.verifyToken(token);
+    if (!success) {
+      throw new BadRequestException('Verification link is invalid or has expired.');
+    }
+    return { ok: true, message: 'Email verified successfully!' };
+  }
+
+  async sendPasswordResetOtp(email: string) {
+    if (!email?.trim()) {
+      throw new BadRequestException('Email is required');
+    }
+    const user = await this.usersService.findByEmail(email.toLowerCase().trim());
+    if (!user) {
+      throw new NotFoundException('No account found with this email address');
+    }
+    if (user.isBanned) {
+      throw new BadRequestException('This account has been suspended. Please contact support.');
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+
+    await this.usersService.setPasswordResetOtp((user as any)._id.toString(), otp, expires);
+    await this.mailService.sendPasswordResetOtp(user.email, user.name, otp);
+
+    return {
+      ok: true,
+      message: `Password reset code sent to ${user.email}`,
+      email: user.email,
+    };
+  }
+
+  async resetPassword(body: { email: string; otp?: string; currentPassword?: string; newPassword: string }) {
+    if (!body.email?.trim()) {
+      throw new BadRequestException('Email is required');
+    }
+    if (!body.newPassword || body.newPassword.trim().length < 6) {
+      throw new BadRequestException('New password must be at least 6 characters');
+    }
+
+    if (body.otp && body.otp.trim()) {
+      return this.usersService.resetPasswordWithOtp(body.email, body.otp, body.newPassword);
+    }
+    if (body.currentPassword && body.currentPassword.trim()) {
+      return this.usersService.resetPasswordWithCurrentPassword(body.email, body.currentPassword, body.newPassword);
+    }
+    throw new BadRequestException('Please provide either the 6-digit OTP code or current password');
+  }
+
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
-    return this.applyPasswordChange(
-      () => this.usersService.findByIdWithPassword(userId),
-      currentPassword,
-      newPassword,
-    );
-  }
-
-  async forgotPassword(email: string, currentPassword: string, newPassword: string) {
-    return this.applyPasswordChange(
-      () => this.usersService.findByEmail(email, true),
-      currentPassword,
-      newPassword,
-    );
-  }
-
-  private async applyPasswordChange(
-    loadUser: () => Promise<{ _id: { toString(): string }; password: string } | null>,
-    currentPassword: string,
-    newPassword: string,
-  ) {
-    if (currentPassword === newPassword) {
-      throw new BadRequestException('New password must be different from your current password');
-    }
-    const user = await loadUser();
-    if (!user || !(await bcrypt.compare(currentPassword, user.password))) {
-      throw new UnauthorizedException('Invalid email or current password');
-    }
-    await this.usersService.updatePasswordHash(user._id.toString(), newPassword);
-    await this.usersService.updateRefreshTokenHash(user._id.toString(), null);
-    return { ok: true, message: 'Password updated successfully. Please sign in with your new password.' };
+    const user = await this.usersService.findById(userId);
+    if (!user) throw new NotFoundException('User not found');
+    return this.usersService.resetPasswordWithCurrentPassword(user.email, currentPassword, newPassword);
   }
 }

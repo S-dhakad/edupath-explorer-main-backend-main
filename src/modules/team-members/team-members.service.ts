@@ -24,7 +24,14 @@ export class TeamMembersService {
   }
 
   create(d: Partial<TeamMember>) {
-    return new this.model(d).save();
+    const payload: Partial<TeamMember> = {
+      ...d,
+      name: d.name?.trim() || '',
+      position: d.position?.trim() || 'Leader',
+      experience: d.experience?.trim() || '1 year',
+      state: d.state?.trim() || 'India',
+    };
+    return new this.model(payload).save();
   }
 
   async update(id: string, patch: Partial<TeamMember>) {

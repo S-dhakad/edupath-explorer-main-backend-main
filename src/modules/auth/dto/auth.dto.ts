@@ -38,11 +38,26 @@ export class RefreshDto {
   refresh_token: string;
 }
 
-export class ChangePasswordDto {
+export class ForgotPasswordSendOtpDto {
   @ApiProperty()
+  @IsEmail()
+  email: string;
+}
+
+export class ForgotPasswordResetDto {
+  @ApiProperty()
+  @IsEmail()
+  email: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsString()
-  @MinLength(6)
-  currentPassword: string;
+  otp?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  currentPassword?: string;
 
   @ApiProperty()
   @IsString()
@@ -50,14 +65,9 @@ export class ChangePasswordDto {
   newPassword: string;
 }
 
-export class ForgotPasswordDto {
+export class ChangePasswordDto {
   @ApiProperty()
-  @IsEmail()
-  email: string;
-
-  @ApiProperty({ description: 'Current / temporary password' })
   @IsString()
-  @MinLength(6)
   currentPassword: string;
 
   @ApiProperty()

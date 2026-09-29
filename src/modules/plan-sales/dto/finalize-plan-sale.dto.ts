@@ -1,9 +1,8 @@
-import { IsMongoId, IsOptional, IsString } from 'class-validator';
+import { IsMongoId, IsString } from 'class-validator';
 
 export class FinalizePlanSaleDto {
-  @IsOptional()
   @IsMongoId()
-  saleId?: string;
+  saleId: string;
 
   @IsMongoId()
   paymentId: string;

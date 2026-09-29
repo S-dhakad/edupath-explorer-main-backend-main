@@ -6,6 +6,7 @@ import {
   Post,
   Query,
   Req,
+  Body,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -17,13 +18,13 @@ import { ConfigService } from '@nestjs/config';
 import type { Request } from 'express';
 import { diskStorage } from 'multer';
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
+import { join, basename } from 'node:path';
 import { mkdirSync, existsSync } from 'node:fs';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../../common/constants/app.constants';
-import { MediaUploadService } from '../storage/media-upload.service';
+import { buildMediaAbsoluteUrl } from '../../common/utils/media-url';
 import { UsersService } from '../users/users.service';
 import { CoursesService } from '../courses/courses.service';
 import { InjectModel } from '@nestjs/mongoose';
@@ -31,7 +32,6 @@ import { Model } from 'mongoose';
 import { Commission, CommissionDocument } from '../commission/schemas/commission.schema';
 import { Kyc, KycDocument } from '../kyc/schemas/kyc.schema';
 import { Withdrawal, WithdrawalDocument } from '../withdrawals/withdrawal.schema';
-import { PlanSalesService } from '../plan-sales/plan-sales.service';
 
 const MAX_VIDEO_UPLOAD_BYTES = Math.min(
   2048 * 1024 * 1024,
@@ -81,17 +81,14 @@ export class AdminController {
     private users: UsersService,
     private coursesService: CoursesService,
     private readonly config: ConfigService,
-    private readonly mediaUpload: MediaUploadService,
     @InjectModel(Commission.name) private commissionModel: Model<CommissionDocument>,
     @InjectModel(Kyc.name) private kycModel: Model<KycDocument>,
     @InjectModel(Withdrawal.name) private withdrawalModel: Model<WithdrawalDocument>,
-    private readonly planSales: PlanSalesService,
   ) {}
 
   @Get('stats')
   async stats() {
-    const [users, courses, revenue, pendingKyc, pendingWithdrawals, pendingPlanApprovals] =
-      await Promise.all([
+    const [users, courses, revenue, pendingKyc, pendingWithdrawals] = await Promise.all([
       this.users.countTotal(),
       this.coursesService.findAllAdmin().then((r) => r.length),
       this.commissionModel.aggregate([
@@ -100,7 +97,6 @@ export class AdminController {
       ]),
       this.kycModel.countDocuments({ status: 'PENDING' }),
       this.withdrawalModel.countDocuments({ status: 'PENDING' }),
-      this.planSales.countPendingApprovals(),
     ]);
     return {
       totalUsers: users,
@@ -108,7 +104,6 @@ export class AdminController {
       platformRevenue: revenue[0]?.t || 0,
       pendingKyc,
       pendingWithdrawals,
-      pendingPlanApprovals,
     };
   }
 
@@ -129,6 +124,11 @@ export class AdminController {
   @Patch('users/:id/verify-seller')
   verify(@Param('id') id: string, @Query('value') value?: string) {
     return this.users.adminVerifySeller(id, value !== 'false');
+  }
+
+  @Patch('users/:id/password')
+  updatePassword(@Param('id') id: string, @Body('password') password: string) {
+    return this.users.adminUpdatePassword(id, password);
   }
 
   @Get('users/:id/referrals')
@@ -177,10 +177,14 @@ export class AdminController {
       | undefined,
     @Req() req: Request,
   ) {
-    if (!file?.path && !(file as { buffer?: Buffer }).buffer) {
+    if (!file?.path) {
       throw new BadRequestException('Missing file field "file"');
     }
-    return this.mediaUpload.persist(file, 'videos', req);
+    const name = basename(file.path);
+    const relativePath = `/uploads/videos/${name}`;
+    const configuredBase = this.config.get<string>('media.publicBase') || '';
+    const url = buildMediaAbsoluteUrl(req, relativePath, configuredBase);
+    return { path: relativePath, url, filename: name, size: file.size };
   }
 
   @Post('media/upload')
@@ -211,10 +215,13 @@ export class AdminController {
       | undefined,
     @Req() req: Request,
   ) {
-    if (!file?.path && !(file as { buffer?: Buffer }).buffer) {
+    if (!file?.path) {
       throw new BadRequestException('Missing file field "file"');
     }
-    const folder = file.mimetype.startsWith('video/') ? 'videos' : 'images';
-    return this.mediaUpload.persist(file, folder, req);
+    const name = basename(file.path);
+    const relativePath = `/uploads/media/${name}`;
+    const configuredBase = this.config.get<string>('media.publicBase') || '';
+    const url = buildMediaAbsoluteUrl(req, relativePath, configuredBase);
+    return { path: relativePath, url, filename: name, size: file.size };
   }
 }

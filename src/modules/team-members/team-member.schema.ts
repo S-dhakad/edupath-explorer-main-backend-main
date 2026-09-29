@@ -8,19 +8,19 @@ export class TeamMember {
   @Prop({ required: true, trim: true })
   name: string;
 
-  @Prop({ required: true, trim: true })
-  experience: string;
-
-  @Prop({ required: true, trim: true })
+  @Prop({ default: 'Leader', trim: true })
   position: string;
 
-  @Prop({ trim: true, maxlength: 160 })
+  @Prop({ default: '1 year', trim: true })
+  experience: string;
+
+  @Prop({ trim: true })
   shortDescription?: string;
 
   @Prop({ trim: true })
   contactNumber?: string;
 
-  @Prop({ required: true, trim: true })
+  @Prop({ default: 'India', trim: true })
   state: string;
 
   @Prop({ trim: true })

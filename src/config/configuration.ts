@@ -26,8 +26,6 @@ export default () => ({
     payoutMode: (process.env.RAZORPAY_PAYOUT_MODE || 'IMPS').toUpperCase() as 'IMPS' | 'NEFT' | 'RTGS',
     /** When true and keys missing, simulate successful bank payout locally */
     payoutMock: process.env.RAZORPAY_PAYOUT_MOCK !== 'false',
-    /** When true and keys missing, skip Razorpay checkout (local dev only) */
-    paymentMock: process.env.RAZORPAY_PAYMENT_MOCK === 'true',
   },
   cors: {
     origin:
@@ -42,20 +40,16 @@ export default () => ({
     uploadDir: (process.env.MEDIA_UPLOAD_DIR || 'uploads').replace(/^\/+|\/+$/g, ''),
     maxVideoMb: Math.min(2048, Math.max(16, parseInt(process.env.MEDIA_MAX_VIDEO_MB || '512', 10) || 512)),
   },
-  aws: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-    region: process.env.AWS_REGION || 'ap-south-1',
-    s3Bucket: process.env.AWS_S3_BUCKET || '',
-    /** Optional CDN / custom domain, e.g. https://cdn.startsuccess.in */
-    s3PublicBase: (process.env.AWS_S3_PUBLIC_BASE || '').replace(/\/$/, ''),
-    s3Enabled: process.env.AWS_S3_ENABLED !== 'false',
-  },
   platform: {
     userId: process.env.PLATFORM_WALLET_USER_ID || '000000000000000000000000',
   },
   mail: {
     webhookUrl: process.env.MAIL_WEBHOOK_URL || '',
     from: process.env.MAIL_FROM || 'StartSuccess <noreply@startsuccess.local>',
+    smtpHost: process.env.SMTP_HOST || '',
+    smtpPort: parseInt(process.env.SMTP_PORT || '587', 10),
+    smtpUser: process.env.SMTP_USER || '',
+    smtpPass: process.env.SMTP_PASS || '',
+    smtpSecure: process.env.SMTP_SECURE === 'true',
   },
 });

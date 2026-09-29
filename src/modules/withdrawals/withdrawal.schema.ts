@@ -45,15 +45,8 @@ export class Withdrawal {
   @Prop({ type: Types.ObjectId, ref: 'User' })
   processedBy?: Types.ObjectId;
 
-  @Prop({ default: 'admin' })
+  @Prop({ default: 'razorpayx' })
   payoutProvider?: string;
-
-  /** How admin paid the member (cash, upi, bank_transfer, …). */
-  @Prop()
-  manualPaymentMethod?: string;
-
-  @Prop()
-  manualPaymentReference?: string;
 
   @Prop()
   razorpayContactId?: string;

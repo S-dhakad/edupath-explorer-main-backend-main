@@ -21,13 +21,6 @@ export class NotificationsController {
     return this.svc.list(user._id.toString(), parseInt(page || '1', 10), parseInt(limit || '30', 10));
   }
 
-  @Patch('read-all')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  markAllRead(@CurrentUser() user: any) {
-    return this.svc.markAllRead(user._id.toString());
-  }
-
   @Patch(':id/read')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

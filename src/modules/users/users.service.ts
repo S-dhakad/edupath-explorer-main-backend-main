@@ -24,12 +24,11 @@ export class UsersService {
   }
 
   async create(user: Partial<User> & { password: string }): Promise<UserDocument> {
-    const hashedPassword = await bcrypt.hash(user.password, 10);
     const referralCode = await this.generateUniqueReferralCode();
     const payload: Partial<User> = {
       name: user.name,
       email: user.email,
-      password: hashedPassword,
+      password: user.password,
       referralCode,
       role: UserRole.USER,
       referredBy: user.referredBy ? new Types.ObjectId(user.referredBy as any) : null,
@@ -75,9 +74,8 @@ export class UsersService {
   }
 
   async activateAccount(userId: string, newPassword: string): Promise<UserDocument | null> {
-    const hashed = await bcrypt.hash(newPassword, 10);
     return this.userModel
-      .findByIdAndUpdate(userId, { accountActive: true, password: hashed }, { new: true })
+      .findByIdAndUpdate(userId, { accountActive: true, password: newPassword }, { new: true })
       .exec();
   }
 
@@ -85,14 +83,6 @@ export class UsersService {
     const q = this.userModel.findOne({ email: email.toLowerCase() });
     if (withPassword) q.select('+password');
     return q.exec();
-  }
-
-  /** Remove abandoned inactive accounts from unpaid affiliate checkouts. */
-  async deleteInactiveUserByEmail(email: string): Promise<void> {
-    const user = await this.findByEmail(email);
-    if (user && !user.accountActive) {
-      await this.userModel.findByIdAndDelete(user._id).exec();
-    }
   }
 
   async findByReferralCode(code: string): Promise<UserDocument | null> {
@@ -133,57 +123,6 @@ export class UsersService {
 
   async findById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).select('-password').exec();
-  }
-
-  async findByIdWithPassword(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).select('+password').exec();
-  }
-
-  async updatePasswordHash(userId: string, newPassword: string): Promise<void> {
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await this.userModel.findByIdAndUpdate(userId, { password: hashed }).exec();
-  }
-
-  async updateProfileSelf(
-    userId: string,
-    data: { name?: string; phone?: string; avatarUrl?: string },
-  ): Promise<UserDocument | null> {
-    const patch: Partial<User> = {};
-    if (data.name !== undefined) {
-      const name = data.name.trim();
-      if (!name) throw new BadRequestException('Name is required');
-      patch.name = name;
-    }
-    if (data.phone !== undefined) {
-      patch.phone = data.phone.trim();
-    }
-    if (data.avatarUrl !== undefined) {
-      patch.avatarUrl = data.avatarUrl;
-    }
-    if (!Object.keys(patch).length) {
-      return this.findById(userId);
-    }
-    return this.userModel.findByIdAndUpdate(userId, { $set: patch }, { new: true }).select('-password').exec();
-  }
-
-  /** Update profile after payment — plan activates only after admin approval. */
-  async updateProfileAfterPayment(
-    userId: string,
-    data: { name: string; phone: string; age: number; dateOfBirth: Date },
-  ) {
-    return this.userModel
-      .findByIdAndUpdate(
-        userId,
-        {
-          name: data.name,
-          phone: data.phone,
-          age: data.age,
-          dateOfBirth: data.dateOfBirth,
-          accountActive: true,
-        },
-        { new: true },
-      )
-      .exec();
   }
 
   /** Set once when user first earns attribution (signup ref or first purchase with coupon). */
@@ -259,10 +198,6 @@ export class UsersService {
     return this.userModel.find({ referredBy: new Types.ObjectId(userId) }).exec();
   }
 
-  async countReferrals(userId: string): Promise<number> {
-    return this.userModel.countDocuments({ referredBy: new Types.ObjectId(userId) }).exec();
-  }
-
   async listReferralTree(userId: string, depth = 3): Promise<any> {
     const root = await this.findById(userId);
     if (!root) throw new NotFoundException('User not found');
@@ -298,6 +233,7 @@ export class UsersService {
     const [items, total] = await Promise.all([
       this.userModel
         .find(filter)
+        .select('+password')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -307,12 +243,142 @@ export class UsersService {
     return { items, total, page, limit };
   }
 
+  async adminUpdatePassword(userId: string, newPassword: string) {
+    if (!newPassword || newPassword.trim().length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+    const updated = await this.userModel
+      .findByIdAndUpdate(userId, { password: newPassword.trim() }, { new: true })
+      .select('+password')
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('User not found');
+    }
+    return updated;
+  }
+
   async adminBan(userId: string, banned: boolean) {
     return this.userModel.findByIdAndUpdate(userId, { isBanned: banned }, { new: true }).exec();
   }
 
   async adminVerifySeller(userId: string, verified: boolean) {
     return this.userModel.findByIdAndUpdate(userId, { isVerifiedSeller: verified }, { new: true }).exec();
+  }
+
+  async adminVerifyEmail(userId: string, verified: boolean) {
+    return this.userModel.findByIdAndUpdate(userId, { emailVerified: verified }, { new: true }).exec();
+  }
+
+  async setPasswordResetOtp(userId: string, otp: string, expires: Date) {
+    return this.userModel
+      .findByIdAndUpdate(userId, {
+        passwordResetToken: otp,
+        passwordResetExpires: expires,
+      })
+      .exec();
+  }
+
+  async resetPasswordWithOtp(email: string, otp: string, newPassword: string) {
+    if (!newPassword || newPassword.trim().length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+    const user = await this.userModel
+      .findOne({ email: email.toLowerCase().trim() })
+      .select('+passwordResetToken')
+      .exec();
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired reset code');
+    }
+    if (!user.passwordResetToken || user.passwordResetToken !== otp.trim()) {
+      throw new BadRequestException('Invalid reset code');
+    }
+    if (user.passwordResetExpires && new Date() > user.passwordResetExpires) {
+      throw new BadRequestException('Reset code has expired. Please request a new code.');
+    }
+
+    await this.userModel.findByIdAndUpdate(user._id, {
+      password: newPassword.trim(),
+      $unset: { passwordResetToken: 1, passwordResetExpires: 1 },
+    });
+
+    return { ok: true, message: 'Password has been reset successfully. You can now login.' };
+  }
+
+  async resetPasswordWithCurrentPassword(email: string, currentPassword: string, newPassword: string) {
+    if (!newPassword || newPassword.trim().length < 6) {
+      throw new BadRequestException('Password must be at least 6 characters');
+    }
+    const user = await this.userModel
+      .findOne({ email: email.toLowerCase().trim() })
+      .select('+password')
+      .exec();
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    const match =
+      user.password === currentPassword ||
+      (user.password?.startsWith('$2')
+        ? await bcrypt.compare(currentPassword, user.password).catch(() => false)
+        : false);
+
+    if (!match) {
+      throw new BadRequestException('Current password does not match');
+    }
+
+    await this.userModel.findByIdAndUpdate(user._id, {
+      password: newPassword.trim(),
+    });
+
+    return { ok: true, message: 'Password has been updated successfully.' };
+  }
+
+  async setVerificationOtp(userId: string, otp: string, token: string, expires: Date) {
+    return this.userModel
+      .findByIdAndUpdate(userId, {
+        emailVerificationOtp: otp,
+        emailVerificationToken: token,
+        emailVerificationExpires: expires,
+      })
+      .exec();
+  }
+
+  async verifyOtp(userId: string, otp: string): Promise<boolean> {
+    const user = await this.userModel.findById(userId).select('+emailVerificationOtp').exec();
+    if (!user) return false;
+    if (!user.emailVerificationOtp || user.emailVerificationOtp !== otp.trim()) {
+      return false;
+    }
+    if (user.emailVerificationExpires && new Date() > user.emailVerificationExpires) {
+      return false;
+    }
+    await this.userModel
+      .findByIdAndUpdate(userId, {
+        emailVerified: true,
+        $unset: { emailVerificationOtp: 1, emailVerificationToken: 1, emailVerificationExpires: 1 },
+      })
+      .exec();
+    return true;
+  }
+
+  async verifyToken(token: string): Promise<boolean> {
+    if (!token) return false;
+    const user = await this.userModel
+      .findOne({ emailVerificationToken: token })
+      .select('+emailVerificationToken')
+      .exec();
+    if (!user) return false;
+    if (user.emailVerificationExpires && new Date() > user.emailVerificationExpires) {
+      return false;
+    }
+    await this.userModel
+      .findByIdAndUpdate(user._id, {
+        emailVerified: true,
+        $unset: { emailVerificationOtp: 1, emailVerificationToken: 1, emailVerificationExpires: 1 },
+      })
+      .exec();
+    return true;
   }
 
   async countTotal() {

@@ -17,13 +17,31 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
+    let status =
       exception instanceof HttpException ? exception.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    const message =
+    let message: any =
       exception instanceof HttpException
         ? exception.getResponse()
         : { message: 'Internal server error' };
+
+    // Format Mongoose / MongoDB errors nicely
+    if (!(exception instanceof HttpException) && exception && typeof exception === 'object') {
+      const err = exception as any;
+      if (err.name === 'ValidationError') {
+        status = HttpStatus.BAD_REQUEST;
+        const details = err.errors
+          ? Object.values(err.errors).map((e: any) => e.message).join(', ')
+          : err.message;
+        message = { statusCode: 400, message: details || 'Validation failed', error: 'Bad Request' };
+      } else if (err.code === 11000) {
+        status = HttpStatus.CONFLICT;
+        message = { statusCode: 409, message: 'Duplicate record already exists', error: 'Conflict' };
+      } else if (err.name === 'CastError') {
+        status = HttpStatus.BAD_REQUEST;
+        message = { statusCode: 400, message: `Invalid ID or format for ${err.path}`, error: 'Bad Request' };
+      }
+    }
 
     const body =
       typeof message === 'string'

@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Post,
@@ -53,50 +52,6 @@ export class PaymentsController {
     });
   }
 
-  @Post('razorpay/verify')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  async rzpVerify(
-    @Body()
-    body: {
-      paymentId: string;
-      orderId: string;
-      razorpayPaymentId: string;
-      signature: string;
-    },
-  ) {
-    const pay = await this.payments.confirmRazorpayPayment(body);
-    return {
-      payment: {
-        _id: pay._id,
-        status: pay.status,
-        orderId: pay.externalId,
-      },
-      verified: true,
-    };
-  }
-
-  @Post('public/razorpay/verify')
-  async publicRzpVerify(
-    @Body()
-    body: {
-      paymentId: string;
-      orderId: string;
-      razorpayPaymentId: string;
-      signature: string;
-    },
-  ) {
-    const confirmed = await this.payments.confirmGuestRazorpayPayment(body);
-    return {
-      payment: {
-        _id: confirmed._id,
-        status: confirmed.status,
-        orderId: confirmed.externalId,
-      },
-      verified: true,
-    };
-  }
-
   @Post('webhook/stripe')
   stripeWebhook(@Req() req: RawBodyRequest<Request>, @Headers('stripe-signature') sig: string) {
     this.payments.logWebhook('stripe', { sig, body: req.body });
@@ -104,19 +59,7 @@ export class PaymentsController {
   }
 
   @Post('webhook/razorpay')
-  async rzpWebhook(
-    @Req() req: RawBodyRequest<Request> & { rawBody?: Buffer },
-    @Headers('x-razorpay-signature') signature: string,
-    @Body() body: any,
-  ) {
-    const raw =
-      req.rawBody?.toString('utf8') ||
-      (typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? {}));
-
-    if (signature && !this.payments.verifyWebhookSignature(raw, signature)) {
-      throw new BadRequestException('Invalid Razorpay webhook signature');
-    }
-
+  async rzpWebhook(@Body() body: any) {
     this.payments.logWebhook('razorpay', body);
     const orderId =
       body?.payload?.payment?.entity?.order_id ||

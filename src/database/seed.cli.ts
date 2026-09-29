@@ -28,8 +28,6 @@ type DummyUserDef = {
   name: string;
   email: string;
   referralCode: string;
-  phone?: string;
-  password?: string;
   planName?: 'Basic' | 'Smart' | 'Elite' | 'Premium';
   referredByEmail?: string;
   role?: UserRole;
@@ -66,14 +64,6 @@ const DUMMY_USERS: DummyUserDef[] = [
     name: 'Explorer Test User',
     email: 'user@edupath.local',
     referralCode: 'EDUPATH01',
-    planName: 'Basic',
-  },
-  {
-    name: 'jamil khan',
-    email: 'jamilkhan786@gmail.com',
-    referralCode: 'JAMIL78601',
-    phone: '9669132900',
-    password: 'Jamil786',
     planName: 'Basic',
   },
 ];
@@ -144,37 +134,20 @@ async function run() {
     }
   }
 
-  const adminEmail = 'admin@startsuccess.in';
-  const adminPassword = 'Admin123!';
+  const adminEmail = 'admin@edupath.local';
   let admin = await userModel.findOne({ email: adminEmail });
-  const adminHash = await bcrypt.hash(adminPassword, 10);
   if (!admin) {
+    const hash = await bcrypt.hash('Admin123!', 10);
     admin = await userModel.create({
       name: 'Platform Admin',
       email: adminEmail,
-      password: adminHash,
+      password: hash,
       referralCode: 'ADMINSEED1',
       role: UserRole.ADMIN,
       emailVerified: true,
-      accountActive: true,
     });
-    console.log('Created admin:', adminEmail);
-  } else {
-    await userModel.updateOne(
-      { _id: admin._id },
-      {
-        $set: {
-          name: 'Platform Admin',
-          password: adminHash,
-          referralCode: 'ADMINSEED1',
-          role: UserRole.ADMIN,
-          emailVerified: true,
-          accountActive: true,
-        },
-      },
-    );
-    admin = (await userModel.findById(admin._id))!;
-    console.log('Updated admin:', adminEmail);
+    // eslint-disable-next-line no-console
+    console.log('Created admin:', adminEmail, '/ Admin123!');
   }
 
   const demoHash = await bcrypt.hash(DEMO_PASSWORD, 10);
@@ -187,15 +160,13 @@ async function run() {
     const referredBy = def.referredByEmail
       ? userByEmail[def.referredByEmail.toLowerCase()]?._id ?? null
       : null;
-    const passwordHash = await bcrypt.hash(def.password ?? DEMO_PASSWORD, 10);
 
     if (!doc) {
       doc = await userModel.create({
         name: def.name,
         email,
-        password: passwordHash,
+        password: demoHash,
         referralCode: def.referralCode.toUpperCase(),
-        phone: def.phone?.trim() || undefined,
         role: def.role ?? UserRole.USER,
         emailVerified: true,
         accountActive: true,
@@ -214,9 +185,8 @@ async function run() {
         {
           $set: {
             name: def.name,
-            password: passwordHash,
+            password: demoHash,
             referralCode: def.referralCode.toUpperCase(),
-            phone: def.phone?.trim() || undefined,
             emailVerified: true,
             accountActive: true,
             planId,
@@ -237,52 +207,17 @@ async function run() {
   }
 
   const categoryDefs = [
-    {
-      name: 'Web Development',
-      slug: 'web-development',
-      order: 1,
-      imageUrl: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=800&q=70',
-    },
-    {
-      name: 'Artificial Intelligence',
-      slug: 'artificial-intelligence',
-      order: 2,
-      imageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=800&q=70',
-    },
-    {
-      name: 'Design',
-      slug: 'design',
-      order: 3,
-      imageUrl: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?auto=format&fit=crop&w=800&q=70',
-    },
-    {
-      name: 'Data',
-      slug: 'data',
-      order: 4,
-      imageUrl: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=800&q=70',
-    },
-    {
-      name: 'Cloud',
-      slug: 'cloud',
-      order: 5,
-      imageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=800&q=70',
-    },
-    {
-      name: 'Mobile',
-      slug: 'mobile',
-      order: 6,
-      imageUrl: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=70',
-    },
+    { name: 'Web Development', slug: 'web-development', order: 1 },
+    { name: 'Artificial Intelligence', slug: 'artificial-intelligence', order: 2 },
+    { name: 'Design', slug: 'design', order: 3 },
+    { name: 'Data', slug: 'data', order: 4 },
+    { name: 'Cloud', slug: 'cloud', order: 5 },
+    { name: 'Mobile', slug: 'mobile', order: 6 },
   ];
   const catBySlug: Record<string, any> = {};
   for (const c of categoryDefs) {
     let doc = await categoryModel.findOne({ slug: c.slug });
-    if (!doc) {
-      doc = await categoryModel.create(c);
-    } else if (!String(doc.imageUrl ?? '').trim()) {
-      await categoryModel.updateOne({ _id: doc._id }, { $set: { imageUrl: c.imageUrl } });
-      doc = await categoryModel.findById(doc._id);
-    }
+    if (!doc) doc = await categoryModel.create(c);
     catBySlug[c.slug] = doc;
   }
 
@@ -476,7 +411,7 @@ async function run() {
   // eslint-disable-next-line no-console
   console.log('Email:    ', adminEmail);
   // eslint-disable-next-line no-console
-  console.log('Password: ', adminPassword);
+  console.log('Password: ', 'Admin123!');
   // eslint-disable-next-line no-console
   console.log('Promo:    ', 'ADMINSEED1 (admin referral code)\n');
 
@@ -490,11 +425,7 @@ async function run() {
     // eslint-disable-next-line no-console
     console.log('  Email:    ', def.email);
     // eslint-disable-next-line no-console
-    console.log('  Password: ', def.password ?? DEMO_PASSWORD);
-    if (def.phone) {
-      // eslint-disable-next-line no-console
-      console.log('  Phone:    ', def.phone);
-    }
+    console.log('  Password: ', DEMO_PASSWORD);
     // eslint-disable-next-line no-console
     console.log('  Promo:    ', def.referralCode, `(${planNote}, ${refNote})`);
   }

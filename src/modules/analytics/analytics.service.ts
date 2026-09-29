@@ -54,8 +54,7 @@ export class AnalyticsService {
     const u = await this.userModel.findById(userId).select('referralCode').lean();
     const code = (u as any)?.referralCode;
 
-    const [totals, activeDaySum, activeWeekSum, activeMonthSum, passiveDaySum, passiveWeekSum, passiveMonthSum, salesCount] =
-      await Promise.all([
+    const [totals, daySum, weekSum, monthSum, salesCount] = await Promise.all([
       this.commissionModel.aggregate([
         { $match: { beneficiaryUserId: uid, incomeCategory: { $in: ['active', 'passive'] } } },
         {
@@ -70,7 +69,7 @@ export class AnalyticsService {
         {
           $match: {
             beneficiaryUserId: uid,
-            incomeCategory: 'active',
+            incomeCategory: { $in: ['active', 'passive'] },
             createdAt: { $gte: sinceDay },
           },
         },
@@ -80,7 +79,7 @@ export class AnalyticsService {
         {
           $match: {
             beneficiaryUserId: uid,
-            incomeCategory: 'active',
+            incomeCategory: { $in: ['active', 'passive'] },
             createdAt: { $gte: sinceWeek },
           },
         },
@@ -90,37 +89,7 @@ export class AnalyticsService {
         {
           $match: {
             beneficiaryUserId: uid,
-            incomeCategory: 'active',
-            createdAt: { $gte: sinceMonth },
-          },
-        },
-        { $group: { _id: null, t: { $sum: '$amount' } } },
-      ]),
-      this.commissionModel.aggregate([
-        {
-          $match: {
-            beneficiaryUserId: uid,
-            incomeCategory: 'passive',
-            createdAt: { $gte: sinceDay },
-          },
-        },
-        { $group: { _id: null, t: { $sum: '$amount' } } },
-      ]),
-      this.commissionModel.aggregate([
-        {
-          $match: {
-            beneficiaryUserId: uid,
-            incomeCategory: 'passive',
-            createdAt: { $gte: sinceWeek },
-          },
-        },
-        { $group: { _id: null, t: { $sum: '$amount' } } },
-      ]),
-      this.commissionModel.aggregate([
-        {
-          $match: {
-            beneficiaryUserId: uid,
-            incomeCategory: 'passive',
+            incomeCategory: { $in: ['active', 'passive'] },
             createdAt: { $gte: sinceMonth },
           },
         },
@@ -139,12 +108,9 @@ export class AnalyticsService {
       totalActive: t.active,
       totalPassive: t.passive,
       lifetimeEarnings: t.active + t.passive,
-      todayIncome: activeDaySum[0]?.t || 0,
-      weeklyIncome: activeWeekSum[0]?.t || 0,
-      monthlyIncome: activeMonthSum[0]?.t || 0,
-      todayPassiveIncome: passiveDaySum[0]?.t || 0,
-      weeklyPassiveIncome: passiveWeekSum[0]?.t || 0,
-      monthlyPassiveIncome: passiveMonthSum[0]?.t || 0,
+      todayIncome: daySum[0]?.t || 0,
+      weeklyIncome: weekSum[0]?.t || 0,
+      monthlyIncome: monthSum[0]?.t || 0,
       totalCourseSales: salesCount,
     };
   }
