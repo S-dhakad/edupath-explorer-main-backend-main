@@ -28,9 +28,16 @@ export default () => ({
     payoutMock: process.env.RAZORPAY_PAYOUT_MOCK !== 'false',
   },
   cors: {
-    origin:
-      process.env.CORS_ORIGIN?.split(',') ||
-      ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+    origin: (process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean)
+      : [
+          'http://localhost:5173',
+          'http://localhost:5174',
+          'http://localhost:3000',
+          'https://startsuccess.in',
+          'https://www.startsuccess.in',
+          'https://edupath-explorer.vercel.app',
+        ]),
   },
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
   /** Prefix for course media stored as paths like /uploads/... */
