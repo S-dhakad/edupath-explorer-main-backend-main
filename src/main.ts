@@ -25,24 +25,19 @@ async function bootstrap() {
   app.use(mongoSanitize());
   app.useWebSocketAdapter(new IoAdapter(app));
 
-  const configuredOrigins: string[] = config.get<string[]>('cors.origin') || [];
   app.enableCors({
-    origin: (requestOrigin, callback) => {
-      if (!requestOrigin) return callback(null, true);
-      const normalized = requestOrigin.replace(/\/$/, '').toLowerCase();
-      const isAllowed =
-        configuredOrigins.some((o) => o === '*' || o.toLowerCase() === normalized) ||
-        /https?:\/\/(www\.)?startsuccess\.in(:\d+)?$/.test(normalized) ||
-        /https?:\/\/localhost(:\d+)?$/.test(normalized) ||
-        /https?:\/\/127\.0\.0\.1(:\d+)?$/.test(normalized) ||
-        normalized.endsWith('.vercel.app');
-
-      if (isAllowed) {
-        return callback(null, true);
-      }
-      callback(null, false);
-    },
+    origin: true,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Origin',
+      'X-Requested-With',
+      'Content-Type',
+      'Accept',
+      'Authorization',
+      'Range',
+    ],
+    exposedHeaders: ['Content-Range', 'X-Content-Range'],
   });
 
   const uploadDirName = config.get<string>('media.uploadDir') || 'uploads';
