@@ -22,11 +22,22 @@ export class WalletRepository {
       .session(session || null)
       .exec();
     if (!w) {
-      const arr = await this.walletModel.create(
-        [{ userId: new Types.ObjectId(userId), availableBalance: 0, pendingBalance: 0, currency }],
-        { session },
-      );
-      w = arr[0];
+      try {
+        const arr = await this.walletModel.create(
+          [{ userId: new Types.ObjectId(userId), availableBalance: 0, pendingBalance: 0, currency }],
+          { session },
+        );
+        w = arr[0];
+      } catch (err: any) {
+        if (err?.code === 11000) {
+          w = await this.walletModel
+            .findOne({ userId: new Types.ObjectId(userId) })
+            .session(session || null)
+            .exec();
+        } else {
+          throw err;
+        }
+      }
     }
     return w;
   }
