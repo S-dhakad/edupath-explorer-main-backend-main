@@ -118,8 +118,29 @@ export class UsersController {
       }
     }
 
+    let mentorName: string | null = null;
+    let mentorPhone: string | null = null;
+    if (user.referredBy && typeof user.referredBy === 'object' && (user.referredBy as any).name) {
+      mentorName = (user.referredBy as any).name;
+      mentorPhone = (user.referredBy as any).phone || null;
+    } else if (user.lockedAffiliateCoupon) {
+      const referrer = await this.usersService.findByReferralCode(user.lockedAffiliateCoupon);
+      if (referrer) {
+        mentorName = referrer.name;
+        mentorPhone = referrer.phone || null;
+      }
+    }
+
+    const userObj = user.toObject ? user.toObject() : user;
+
     return {
-      user,
+      user: {
+        ...userObj,
+        mentorName,
+        mentorPhone,
+      },
+      mentorName,
+      mentorPhone,
       kycStatus: (kycStatus as { status?: string })?.status ?? 'NOT_SUBMITTED',
       activeMembership,
       referrals: referrals.length,
@@ -131,9 +152,9 @@ export class UsersController {
       wallet,
       conversionRate: Math.round(conversionRate * 100) / 100,
       ...summary,
-      totalIncome: (user.activeIncome || 0) + (user.passiveIncome || 0),
-      activeIncome: user.activeIncome,
-      passiveIncome: user.passiveIncome,
+      totalIncome: user.activeIncome || 0,
+      activeIncome: user.activeIncome || 0,
+      passiveIncome: 0,
     };
   }
 }

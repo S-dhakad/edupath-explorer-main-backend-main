@@ -134,7 +134,11 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).select('-password').exec();
+    return this.userModel
+      .findById(id)
+      .select('-password')
+      .populate('referredBy', 'name email referralCode phone')
+      .exec();
   }
 
   async findByIdWithPassword(id: string): Promise<UserDocument | null> {

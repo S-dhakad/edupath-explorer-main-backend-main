@@ -23,19 +23,15 @@ export class AnalyticsService {
       {
         $match: {
           beneficiaryUserId: uid,
-          incomeCategory: { $in: ['active', 'passive'] },
+          incomeCategory: 'active',
           createdAt: { $gte: since },
         },
       },
       {
         $group: {
           _id: { $dateToString: { format, date: '$createdAt' } },
-          active: {
-            $sum: { $cond: [{ $eq: ['$incomeCategory', 'active'] }, '$amount', 0] },
-          },
-          passive: {
-            $sum: { $cond: [{ $eq: ['$incomeCategory', 'passive'] }, '$amount', 0] },
-          },
+          active: { $sum: '$amount' },
+          passive: { $sum: 0 },
         },
       },
       { $sort: { _id: 1 } },
@@ -56,12 +52,11 @@ export class AnalyticsService {
 
     const [totals, daySum, weekSum, monthSum, salesCount] = await Promise.all([
       this.commissionModel.aggregate([
-        { $match: { beneficiaryUserId: uid, incomeCategory: { $in: ['active', 'passive'] } } },
+        { $match: { beneficiaryUserId: uid, incomeCategory: 'active' } },
         {
           $group: {
             _id: null,
-            active: { $sum: { $cond: [{ $eq: ['$incomeCategory', 'active'] }, '$amount', 0] } },
-            passive: { $sum: { $cond: [{ $eq: ['$incomeCategory', 'passive'] }, '$amount', 0] } },
+            active: { $sum: '$amount' },
           },
         },
       ]),
@@ -69,7 +64,7 @@ export class AnalyticsService {
         {
           $match: {
             beneficiaryUserId: uid,
-            incomeCategory: { $in: ['active', 'passive'] },
+            incomeCategory: 'active',
             createdAt: { $gte: sinceDay },
           },
         },
@@ -79,7 +74,7 @@ export class AnalyticsService {
         {
           $match: {
             beneficiaryUserId: uid,
-            incomeCategory: { $in: ['active', 'passive'] },
+            incomeCategory: 'active',
             createdAt: { $gte: sinceWeek },
           },
         },
@@ -89,7 +84,7 @@ export class AnalyticsService {
         {
           $match: {
             beneficiaryUserId: uid,
-            incomeCategory: { $in: ['active', 'passive'] },
+            incomeCategory: 'active',
             createdAt: { $gte: sinceMonth },
           },
         },
@@ -103,11 +98,11 @@ export class AnalyticsService {
         : Promise.resolve(0),
     ]);
 
-    const t = totals[0] || { active: 0, passive: 0 };
+    const t = totals[0] || { active: 0 };
     return {
       totalActive: t.active,
-      totalPassive: t.passive,
-      lifetimeEarnings: t.active + t.passive,
+      totalPassive: 0,
+      lifetimeEarnings: t.active,
       todayIncome: daySum[0]?.t || 0,
       weeklyIncome: weekSum[0]?.t || 0,
       monthlyIncome: monthSum[0]?.t || 0,
@@ -133,9 +128,9 @@ export class AnalyticsService {
     const since = this.periodStart(period);
     if (period === 'overall') {
       const users = await this.userModel
-        .find({ role: 'user', $or: [{ activeIncome: { $gt: 0 } }, { passiveIncome: { $gt: 0 } }] })
-        .select('name email avatarUrl activeIncome passiveIncome')
-        .sort({ activeIncome: -1, passiveIncome: -1 })
+        .find({ role: { $nin: ['admin', 'ADMIN'] }, activeIncome: { $gt: 0 } })
+        .select('name email avatarUrl activeIncome')
+        .sort({ activeIncome: -1 })
         .limit(limit)
         .lean();
       return users.map((u: any, i) => ({
@@ -145,14 +140,14 @@ export class AnalyticsService {
         email: u.email,
         avatarUrl: u.avatarUrl,
         activeIncome: u.activeIncome || 0,
-        passiveIncome: u.passiveIncome || 0,
-        totalEarnings: (u.activeIncome || 0) + (u.passiveIncome || 0),
+        passiveIncome: 0,
+        totalEarnings: u.activeIncome || 0,
       }));
     }
 
     const match: Record<string, unknown> = {
       beneficiaryUserId: { $ne: null },
-      incomeCategory: { $in: ['active', 'passive'] },
+      incomeCategory: 'active',
     };
     if (since) match.createdAt = { $gte: since };
 
@@ -161,8 +156,7 @@ export class AnalyticsService {
       {
         $group: {
           _id: '$beneficiaryUserId',
-          active: { $sum: { $cond: [{ $eq: ['$incomeCategory', 'active'] }, '$amount', 0] } },
-          passive: { $sum: { $cond: [{ $eq: ['$incomeCategory', 'passive'] }, '$amount', 0] } },
+          active: { $sum: '$amount' },
           total: { $sum: '$amount' },
         },
       },
@@ -173,7 +167,7 @@ export class AnalyticsService {
     const ids = rows.map((r) => r._id);
     const users = await this.userModel
       .find({ _id: { $in: ids } })
-      .select('name email avatarUrl activeIncome passiveIncome')
+      .select('name email avatarUrl activeIncome')
       .lean();
     const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
 
@@ -186,7 +180,7 @@ export class AnalyticsService {
         email: (u as any).email,
         avatarUrl: (u as any).avatarUrl,
         activeIncome: r.active,
-        passiveIncome: r.passive,
+        passiveIncome: 0,
         totalEarnings: r.total,
       };
     });
