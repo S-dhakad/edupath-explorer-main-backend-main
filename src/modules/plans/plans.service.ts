@@ -31,8 +31,19 @@ export class PlansService {
       doc?.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
     const tierIds = tiers.map((t) => t.id);
 
+    // Deactivate plans not in admin tiers (includes legacy rows without tierId).
     await this.planModel
-      .updateMany({ tierId: { $exists: true, $nin: tierIds } }, { $set: { active: false } })
+      .updateMany(
+        {
+          $or: [
+            { tierId: { $exists: false } },
+            { tierId: null },
+            { tierId: '' },
+            { tierId: { $nin: tierIds } },
+          ],
+        },
+        { $set: { active: false } },
+      )
       .exec();
 
     for (const tier of tiers) {
@@ -94,7 +105,11 @@ export class PlansService {
 
   async findActive(): Promise<Plan[]> {
     await this.syncFromLandingPricing();
-    return this.planModel.find({ active: true }).sort({ price: 1 }).exec();
+    const doc = await this.landingPricingModel.findOne({ key: 'default' }).lean().exec();
+    const tiers: LandingPricingTier[] =
+      doc?.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
+    const tierIds = tiers.map((t) => t.id);
+    return this.planModel.find({ active: true, tierId: { $in: tierIds } }).sort({ price: 1 }).exec();
   }
 
   async findById(id: string): Promise<Plan | null> {
@@ -117,5 +132,20 @@ export class PlansService {
     const plan = await this.resolvePlan(idOrTierId);
     if (!plan) throw new NotFoundException('Plan not found');
     return plan;
+  }
+
+  /** Tier order from admin landing pricing (low → high). */
+  async getTierOrder(): Promise<string[]> {
+    const doc = await this.landingPricingModel.findOne({ key: 'default' }).lean().exec();
+    const tiers: LandingPricingTier[] =
+      doc?.tiers?.length ? doc.tiers : DEFAULT_LANDING_PRICING_TIERS;
+    return tiers.map((t) => t.id);
+  }
+
+  async getTierRank(tierId?: string | null): Promise<number> {
+    if (!tierId) return -1;
+    const order = await this.getTierOrder();
+    const idx = order.indexOf(tierId);
+    return idx >= 0 ? idx : order.length;
   }
 }
