@@ -92,7 +92,7 @@ export const DEFAULT_LANDING_HERO: Partial<LandingHero> = {
 };
 
 /** Plans shown on homepage pricing section (admin can override per tier). */
-export const DEFAULT_LANDING_VISIBLE_IDS = ['elite', 'premium', 'higher'] as const;
+export const DEFAULT_LANDING_VISIBLE_IDS = ['elite', 'higher', 'premium'] as const;
 
 /** Homepage pricing tiers — matches explorer `plans` + cover copy */
 export const DEFAULT_LANDING_PRICING_TIERS: LandingPricingTier[] = [
@@ -172,6 +172,30 @@ export const DEFAULT_LANDING_PRICING_TIERS: LandingPricingTier[] = [
     courseIds: [],
   },
   {
+    id: 'higher',
+    name: 'Higher Package',
+    tagline: 'Start your journey',
+    price: 5999,
+    promoPrice: 3999,
+    period: 'one-time',
+    features: [
+      'Everything in elite package',
+      'Google ads',
+      'Figma',
+      'Meta ads',
+      'Facebook ads',
+      'OLX ads',
+      'Resume building for top companies',
+    ],
+    chip: 'Growth toolkit',
+    showOnLanding: true,
+    savings: 'Active income ₹2799 | Passive ₹399',
+    description:
+      'Master paid ads across Google, Meta, Facebook and OLX plus Figma and resume building for top company placements.',
+    accent: 'from-emerald-700/70 via-emerald-500/35 to-transparent',
+    courseIds: [],
+  },
+  {
     id: 'premium',
     name: 'Premium Package',
     tagline: 'Start your journey',
@@ -179,7 +203,7 @@ export const DEFAULT_LANDING_PRICING_TIERS: LandingPricingTier[] = [
     promoPrice: 7999,
     period: 'one-time',
     features: [
-      'Everything in elite package',
+      'Everything in higher package',
       'E-mail marketing',
       'E-commerce',
       'Digital marketing',
@@ -195,30 +219,6 @@ export const DEFAULT_LANDING_PRICING_TIERS: LandingPricingTier[] = [
     description:
       'The complete business toolkit: e-commerce, email marketing, Facebook ads, drop shipping and advanced sales closing.',
     accent: 'from-primary/80 via-primary/30 to-transparent',
-    courseIds: [],
-  },
-  {
-    id: 'higher',
-    name: 'Higher Package',
-    tagline: 'Start your journey',
-    price: 5999,
-    promoPrice: 3999,
-    period: 'one-time',
-    features: [
-      'Everything in premium package',
-      'Google ads',
-      'Figma',
-      'Meta ads',
-      'Facebook ads',
-      'OLX ads',
-      'Resume building for top companies',
-    ],
-    chip: 'Growth toolkit',
-    showOnLanding: true,
-    savings: 'Active income ₹2799 | Passive ₹399',
-    description:
-      'Master paid ads across Google, Meta, Facebook and OLX plus Figma and resume building for top company placements.',
-    accent: 'from-emerald-700/70 via-emerald-500/35 to-transparent',
     courseIds: [],
   },
 ];

@@ -121,8 +121,66 @@ export class UsersService {
     return referralCode;
   }
 
+  async deleteInactiveUserByEmail(email: string): Promise<void> {
+    const user = await this.findByEmail(email);
+    if (user && !user.accountActive) {
+      await this.userModel.findByIdAndDelete(user._id).exec();
+    }
+  }
+
   async findById(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).select('-password').exec();
+  }
+
+  async findByIdWithPassword(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).select('+password').exec();
+  }
+
+  async updatePasswordHash(userId: string, newPassword: string): Promise<void> {
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.userModel.findByIdAndUpdate(userId, { password: hashed }).exec();
+  }
+
+  async updateProfileSelf(
+    userId: string,
+    data: { name?: string; phone?: string; avatarUrl?: string },
+  ): Promise<UserDocument | null> {
+    const patch: Partial<User> = {};
+    if (data.name !== undefined) {
+      const name = data.name.trim();
+      if (!name) throw new BadRequestException('Name is required');
+      patch.name = name;
+    }
+    if (data.phone !== undefined) {
+      patch.phone = data.phone.trim();
+    }
+    if (data.avatarUrl !== undefined) {
+      patch.avatarUrl = data.avatarUrl;
+    }
+    if (!Object.keys(patch).length) {
+      return this.findById(userId);
+    }
+    return this.userModel.findByIdAndUpdate(userId, { $set: patch }, { new: true }).select('-password').exec();
+  }
+
+  /** Update profile after payment — plan activates only after admin approval. */
+  async updateProfileAfterPayment(
+    userId: string,
+    data: { name: string; phone: string; age: number; dateOfBirth: Date },
+  ) {
+    return this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          name: data.name,
+          phone: data.phone,
+          age: data.age,
+          dateOfBirth: data.dateOfBirth,
+          accountActive: true,
+        },
+        { new: true },
+      )
+      .exec();
   }
 
   /** Set once when user first earns attribution (signup ref or first purchase with coupon). */

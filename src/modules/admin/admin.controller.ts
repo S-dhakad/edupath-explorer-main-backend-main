@@ -71,6 +71,8 @@ function generalMediaDiskStorage() {
   });
 }
 
+import { PlanSalesService } from '../plan-sales/plan-sales.service';
+
 @ApiTags('admin')
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -84,26 +86,30 @@ export class AdminController {
     @InjectModel(Commission.name) private commissionModel: Model<CommissionDocument>,
     @InjectModel(Kyc.name) private kycModel: Model<KycDocument>,
     @InjectModel(Withdrawal.name) private withdrawalModel: Model<WithdrawalDocument>,
+    private readonly planSales: PlanSalesService,
   ) {}
 
   @Get('stats')
   async stats() {
-    const [users, courses, revenue, pendingKyc, pendingWithdrawals] = await Promise.all([
-      this.users.countTotal(),
-      this.coursesService.findAllAdmin().then((r) => r.length),
-      this.commissionModel.aggregate([
-        { $match: { incomeCategory: 'platform' } },
-        { $group: { _id: null, t: { $sum: '$amount' } } },
-      ]),
-      this.kycModel.countDocuments({ status: 'PENDING' }),
-      this.withdrawalModel.countDocuments({ status: 'PENDING' }),
-    ]);
+    const [users, courses, revenue, pendingKyc, pendingWithdrawals, pendingPlanApprovals] =
+      await Promise.all([
+        this.users.countTotal(),
+        this.coursesService.findAllAdmin().then((r) => r.length),
+        this.commissionModel.aggregate([
+          { $match: { incomeCategory: 'platform' } },
+          { $group: { _id: null, t: { $sum: '$amount' } } },
+        ]),
+        this.kycModel.countDocuments({ status: 'PENDING' }),
+        this.withdrawalModel.countDocuments({ status: 'PENDING' }),
+        this.planSales.countPendingApprovals(),
+      ]);
     return {
       totalUsers: users,
       totalCourses: courses,
       platformRevenue: revenue[0]?.t || 0,
       pendingKyc,
       pendingWithdrawals,
+      pendingPlanApprovals,
     };
   }
 

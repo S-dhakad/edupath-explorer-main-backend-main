@@ -1,4 +1,4 @@
-import { IsEmail, IsInt, IsMongoId, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsEmail, IsMongoId, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class CreatePlanSaleDto {
   @IsString()
@@ -7,10 +7,6 @@ export class CreatePlanSaleDto {
 
   @IsEmail()
   email: string;
-
-  @IsInt()
-  @Min(1)
-  age: number;
 
   @IsString()
   dateOfBirth: string;

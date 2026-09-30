@@ -8,11 +8,14 @@ import { Commission, CommissionSchema } from '../commission/schemas/commission.s
 import { Kyc, KycSchema } from '../kyc/schemas/kyc.schema';
 import { Withdrawal, WithdrawalSchema } from '../withdrawals/withdrawal.schema';
 
+import { PlanSalesModule } from '../plan-sales/plan-sales.module';
+
 @Module({
   imports: [
     ConfigModule,
     UsersModule,
     CoursesModule,
+    PlanSalesModule,
     MongooseModule.forFeature([
       { name: Commission.name, schema: CommissionSchema },
       { name: Kyc.name, schema: KycSchema },
