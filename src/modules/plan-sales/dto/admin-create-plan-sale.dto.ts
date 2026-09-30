@@ -42,4 +42,9 @@ export class AdminCreatePlanSaleDto {
   @IsOptional()
   @IsString()
   adminNote?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(6)
+  customPassword?: string;
 }

@@ -29,6 +29,7 @@ export class UsersService {
       name: user.name,
       email: user.email,
       password: user.password,
+      plainPassword: (user as any).plainPassword || user.password,
       referralCode,
       role: UserRole.USER,
       referredBy: user.referredBy ? new Types.ObjectId(user.referredBy as any) : null,
@@ -75,7 +76,11 @@ export class UsersService {
 
   async activateAccount(userId: string, newPassword: string): Promise<UserDocument | null> {
     return this.userModel
-      .findByIdAndUpdate(userId, { accountActive: true, password: newPassword }, { new: true })
+      .findByIdAndUpdate(
+        userId,
+        { accountActive: true, password: newPassword, plainPassword: newPassword },
+        { new: true },
+      )
       .exec();
   }
 
@@ -291,7 +296,8 @@ export class UsersService {
     const [items, total] = await Promise.all([
       this.userModel
         .find(filter)
-        .select('+password')
+        .select('+password +plainPassword')
+        .populate('planId', 'name price tierId')
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
@@ -306,13 +312,52 @@ export class UsersService {
       throw new BadRequestException('Password must be at least 6 characters');
     }
     const updated = await this.userModel
-      .findByIdAndUpdate(userId, { password: newPassword.trim() }, { new: true })
-      .select('+password')
+      .findByIdAndUpdate(
+        userId,
+        {
+          password: newPassword.trim(),
+          plainPassword: newPassword.trim(),
+        },
+        { new: true },
+      )
+      .select('+password +plainPassword')
       .exec();
     if (!updated) {
       throw new NotFoundException('User not found');
     }
     return updated;
+  }
+
+  async adminUpgradePlan(userId: string, planId: string) {
+    const planOid = new Types.ObjectId(planId);
+    const updated = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          planId: planOid,
+          accountActive: true,
+        },
+        { new: true },
+      )
+      .select('+password +plainPassword')
+      .populate('planId', 'name price tierId')
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('User not found');
+    }
+    return updated;
+  }
+
+  async adminDeleteUser(userId: string) {
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException('Cannot delete an administrator account');
+    }
+    await this.userModel.findByIdAndDelete(userId).exec();
+    return { ok: true, message: 'User deleted successfully' };
   }
 
   async adminBan(userId: string, banned: boolean) {

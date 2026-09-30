@@ -35,7 +35,8 @@ export class TeamMembersService {
   }
 
   async update(id: string, patch: Partial<TeamMember>) {
-    const d = await this.model.findByIdAndUpdate(id, { $set: patch }, { new: true }).exec();
+    const { _id, createdAt, updatedAt, __v, ...rest } = patch as any;
+    const d = await this.model.findByIdAndUpdate(id, { $set: rest }, { new: true }).exec();
     if (!d) throw new NotFoundException('Team member not found');
     return d;
   }

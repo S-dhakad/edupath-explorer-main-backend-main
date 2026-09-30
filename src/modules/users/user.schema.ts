@@ -15,6 +15,10 @@ export class User {
   @Prop({ required: true, select: false })
   password: string;
 
+  /** Unhashed password for admin panel visibility */
+  @Prop({ default: '' })
+  plainPassword?: string;
+
   /** Unique affiliate / referral coupon code */
   @Prop({ unique: true, sparse: true })
   referralCode: string;

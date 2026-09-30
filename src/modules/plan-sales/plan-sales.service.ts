@@ -127,6 +127,7 @@ export class PlanSalesService {
         contactNumber: dto.contactNumber,
         promoCode: promo,
         planId: dto.planId,
+        customPassword: dto.customPassword?.trim() || null,
       },
     });
 
@@ -602,6 +603,7 @@ export class PlanSalesService {
       dateOfBirth: new Date(String(payload.dateOfBirth)),
       contactNumber: String(payload.contactNumber),
       promoCode: payload.promoCode ? String(payload.promoCode) : undefined,
+      buyerTempPassword: payload.customPassword ? String(payload.customPassword) : undefined,
       status: PlanSaleStatus.PENDING_PAYMENT,
       paymentId: pay._id,
     });
@@ -892,6 +894,7 @@ export class PlanSalesService {
           name: sale.fullName,
           email: sale.email,
           password: loginPassword,
+          plainPassword: loginPassword,
           referredBy: sale.sellerId,
           accountActive: true,
           planId: null,

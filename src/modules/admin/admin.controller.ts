@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -135,6 +136,16 @@ export class AdminController {
   @Patch('users/:id/password')
   updatePassword(@Param('id') id: string, @Body('password') password: string) {
     return this.users.adminUpdatePassword(id, password);
+  }
+
+  @Patch('users/:id/upgrade-plan')
+  upgradePlan(@Param('id') id: string, @Body('planId') planId: string) {
+    return this.users.adminUpgradePlan(id, planId);
+  }
+
+  @Delete('users/:id')
+  deleteUser(@Param('id') id: string) {
+    return this.users.adminDeleteUser(id);
   }
 
   @Get('users/:id/referrals')
