@@ -43,7 +43,7 @@ export class NotificationsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()
-  broadcast(@Body() body: { title: string; body: string; type?: string }) {
+  broadcast(@Body() body: { title: string; body?: string; type?: string }) {
     return this.svc.broadcast(body);
   }
 }

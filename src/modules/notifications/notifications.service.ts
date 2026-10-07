@@ -132,7 +132,7 @@ export class NotificationsService {
   }
 
   /** Send a notification to ALL users (admin broadcast). */
-  async broadcast(payload: { title: string; body: string; type?: string }) {
+  async broadcast(payload: { title: string; body?: string; type?: string }) {
     const type = resolveNotificationType(payload.type);
     // Fetch all user IDs in batches to avoid memory issues
     const userIds: string[] = await this.userModel.distinct('_id').lean().exec()
@@ -140,11 +140,14 @@ export class NotificationsService {
 
     if (!userIds.length) return { sent: 0 };
 
+    const titleText = payload.title?.trim() || '';
+    const bodyText = (payload.body && payload.body.trim()) ? payload.body.trim() : titleText;
+
     const docs = userIds.map((uid) => ({
       userId: new Types.ObjectId(uid),
       type,
-      title: payload.title,
-      body: payload.body,
+      title: titleText,
+      body: bodyText,
     }));
 
     await this.model.insertMany(docs);
@@ -153,8 +156,8 @@ export class NotificationsService {
     for (const uid of userIds) {
       this.gateway.emitToUser(uid, 'notification', {
         type,
-        title: payload.title,
-        body: payload.body,
+        title: titleText,
+        body: bodyText,
       });
     }
 
