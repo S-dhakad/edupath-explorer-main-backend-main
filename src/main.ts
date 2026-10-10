@@ -1,3 +1,10 @@
+import * as dns from 'node:dns';
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1']);
+} catch {
+  // fallback if environment restricts setting servers
+}
+
 import { mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
