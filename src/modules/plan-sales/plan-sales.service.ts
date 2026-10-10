@@ -27,6 +27,7 @@ import { PaymentStatus } from '../../common/constants/app.constants';
 import { PromoCouponsService } from '../coupons/promo-coupons.service';
 import { SettingsService } from '../settings/settings.service';
 import { UserDocument } from '../users/user.schema';
+import { sanitizeEmail } from '../../common/utils/email.util';
 
 @Injectable()
 export class PlanSalesService {
@@ -102,7 +103,7 @@ export class PlanSalesService {
     if (!promo) throw new BadRequestException('Promo code is required');
     const { sellerOid } = await this.resolvePromoSeller(promo);
     const pricing = await this.resolvePlanPricing(plan, promo);
-    const email = dto.email.trim().toLowerCase();
+    const email = sanitizeEmail(dto.email);
 
     const pay = await this.paymentModel.create({
       payerUserId: sellerOid,

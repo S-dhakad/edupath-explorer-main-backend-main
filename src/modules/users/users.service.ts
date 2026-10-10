@@ -6,6 +6,7 @@ import * as bcrypt from 'bcrypt';
 import { v4 as uuidv4 } from 'uuid';
 import { UserRole } from '../../common/constants/app.constants';
 import { WalletService } from '../wallet/wallet.service';
+import { sanitizeEmail } from '../../common/utils/email.util';
 
 @Injectable()
 export class UsersService {
@@ -27,7 +28,7 @@ export class UsersService {
     const referralCode = await this.generateUniqueReferralCode();
     const payload: Partial<User> = {
       name: user.name,
-      email: user.email,
+      email: sanitizeEmail(user.email),
       password: user.password,
       plainPassword: (user as any).plainPassword || user.password,
       referralCode,
@@ -85,7 +86,10 @@ export class UsersService {
   }
 
   async findByEmail(email: string, withPassword = false): Promise<UserDocument | null> {
-    const q = this.userModel.findOne({ email: email.toLowerCase() });
+    const clean = sanitizeEmail(email);
+    const q = this.userModel.findOne({
+      $or: [{ email: clean }, { email: `email-${clean}` }],
+    });
     if (withPassword) q.select('+password');
     return q.exec();
   }
@@ -416,8 +420,11 @@ export class UsersService {
     if (!newPassword || newPassword.trim().length < 6) {
       throw new BadRequestException('Password must be at least 6 characters');
     }
+    const clean = sanitizeEmail(email);
     const user = await this.userModel
-      .findOne({ email: email.toLowerCase().trim() })
+      .findOne({
+        $or: [{ email: clean }, { email: `email-${clean}` }],
+      })
       .select('+password')
       .exec();
 
