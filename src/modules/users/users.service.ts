@@ -337,14 +337,16 @@ export class UsersService {
   }
 
   async adminUpgradePlan(userId: string, planId: string) {
-    const planOid = new Types.ObjectId(planId);
+    const updatePayload: Record<string, any> = { accountActive: true };
+    if (!planId || planId === 'none' || planId === 'null') {
+      updatePayload.planId = null;
+    } else {
+      updatePayload.planId = new Types.ObjectId(planId);
+    }
     const updated = await this.userModel
       .findByIdAndUpdate(
         userId,
-        {
-          planId: planOid,
-          accountActive: true,
-        },
+        updatePayload,
         { new: true },
       )
       .select('+password +plainPassword')

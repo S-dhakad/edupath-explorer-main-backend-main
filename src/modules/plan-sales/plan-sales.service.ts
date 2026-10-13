@@ -879,9 +879,15 @@ export class PlanSalesService {
     if (!sale.buyerUserId) {
       const existing = await this.usersService.findByEmail(sale.email);
       if (existing?.accountActive && existing.planId) {
-        throw new ConflictException('Email already registered with an active plan');
-      }
-      if (existing?.accountActive && !existing.planId) {
+        if ((pay?.providerPayload as any)?.checkoutKind === 'admin_offline') {
+          buyerId = existing._id.toString();
+          sale.buyerUserId = existing._id as Types.ObjectId;
+          sale.isUpgrade = true;
+          sale.upgradedFromPlanId = existing.planId as Types.ObjectId;
+        } else {
+          throw new ConflictException('Email already registered with an active plan');
+        }
+      } else if (existing?.accountActive && !existing.planId) {
         buyerId = existing._id.toString();
         loginPassword = sale.buyerTempPassword || uuidv4().slice(0, 12);
         await this.usersService.activateAccount(buyerId, loginPassword);
