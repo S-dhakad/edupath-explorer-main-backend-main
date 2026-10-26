@@ -49,8 +49,6 @@ export class AnalyticsController {
   }
 
   @Get('leaderboard')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
   leaderboard(@Query('period') period?: 'daily' | 'weekly' | 'monthly' | 'overall') {
     const p = period || 'monthly';
     if (!['daily', 'weekly', 'monthly', 'overall'].includes(p)) {

@@ -112,16 +112,25 @@ export class AnalyticsService {
 
   private periodStart(period: 'daily' | 'weekly' | 'monthly' | 'overall'): Date | null {
     if (period === 'overall') return null;
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    if (period === 'weekly') {
-      const day = d.getDay();
-      const diff = day === 0 ? 6 : day - 1;
-      d.setDate(d.getDate() - diff);
+    const now = new Date();
+    // Indian Standard Time offset (+5:30 = 330 minutes)
+    const istOffsetMs = 330 * 60 * 1000;
+    const istNow = new Date(now.getTime() + istOffsetMs);
+
+    const istYear = istNow.getUTCFullYear();
+    const istMonth = istNow.getUTCMonth();
+    const istDate = istNow.getUTCDate();
+
+    if (period === 'daily') {
+      return new Date(Date.UTC(istYear, istMonth, istDate, 0, 0, 0, 0) - istOffsetMs);
+    } else if (period === 'weekly') {
+      // Last 7 full rolling days to align with weekly income in dashboard
+      return new Date(Date.UTC(istYear, istMonth, istDate - 7, 0, 0, 0, 0) - istOffsetMs);
     } else if (period === 'monthly') {
-      d.setDate(1);
+      // Last 30 full rolling days
+      return new Date(Date.UTC(istYear, istMonth, istDate - 30, 0, 0, 0, 0) - istOffsetMs);
     }
-    return d;
+    return null;
   }
 
   async leaderboard(period: 'daily' | 'weekly' | 'monthly' | 'overall', limit = 10) {
@@ -133,16 +142,19 @@ export class AnalyticsService {
         .sort({ activeIncome: -1 })
         .limit(limit)
         .lean();
-      return users.map((u: any, i) => ({
-        rank: i + 1,
-        userId: u._id.toString(),
-        name: u.name,
-        email: u.email,
-        avatarUrl: u.avatarUrl,
-        activeIncome: u.activeIncome || 0,
-        passiveIncome: 0,
-        totalEarnings: u.activeIncome || 0,
-      }));
+      return users.map((u: any, i) => {
+        const income = Math.round(((u.activeIncome || 0) + Number.EPSILON) * 100) / 100;
+        return {
+          rank: i + 1,
+          userId: u._id.toString(),
+          name: u.name,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+          activeIncome: income,
+          passiveIncome: 0,
+          totalEarnings: income,
+        };
+      });
     }
 
     const match: Record<string, unknown> = {
@@ -173,15 +185,17 @@ export class AnalyticsService {
 
     return rows.map((r, i) => {
       const u = byId.get(r._id.toString()) || {};
+      const total = Math.round(((r.total || 0) + Number.EPSILON) * 100) / 100;
+      const active = Math.round(((r.active || 0) + Number.EPSILON) * 100) / 100;
       return {
         rank: i + 1,
         userId: r._id.toString(),
         name: (u as any).name || 'User',
         email: (u as any).email,
         avatarUrl: (u as any).avatarUrl,
-        activeIncome: r.active,
+        activeIncome: active,
         passiveIncome: 0,
-        totalEarnings: r.total,
+        totalEarnings: total,
       };
     });
   }
