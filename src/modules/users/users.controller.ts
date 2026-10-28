@@ -120,10 +120,22 @@ export class UsersController {
 
     let mentorName: string | null = null;
     let mentorPhone: string | null = null;
-    if (user.referredBy && typeof user.referredBy === 'object' && (user.referredBy as any).name) {
-      mentorName = (user.referredBy as any).name;
-      mentorPhone = (user.referredBy as any).phone || null;
-    } else if (user.lockedAffiliateCoupon) {
+    if (user.referredBy) {
+      if (typeof user.referredBy === 'object' && (user.referredBy as any).name) {
+        mentorName = (user.referredBy as any).name;
+        mentorPhone = (user.referredBy as any).phone || null;
+      } else {
+        const refId = (user.referredBy as any)._id
+          ? (user.referredBy as any)._id.toString()
+          : user.referredBy.toString();
+        const upline = await this.usersService.findById(refId);
+        if (upline) {
+          mentorName = upline.name;
+          mentorPhone = upline.phone || null;
+        }
+      }
+    }
+    if (!mentorName && user.lockedAffiliateCoupon) {
       const referrer = await this.usersService.findByReferralCode(user.lockedAffiliateCoupon);
       if (referrer) {
         mentorName = referrer.name;

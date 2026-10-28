@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -73,6 +74,51 @@ export class PaymentGatewayService {
         { new: true },
       )
       .exec();
+  }
+
+  async verifyRazorpay(
+    paymentId: string,
+    orderId?: string,
+    razorpayPaymentId?: string,
+    signature?: string,
+  ) {
+    if (!paymentId || !Types.ObjectId.isValid(paymentId)) {
+      throw new BadRequestException('Invalid paymentId');
+    }
+
+    const payment = await this.paymentModel.findById(paymentId);
+    if (!payment) {
+      throw new NotFoundException('Payment record not found');
+    }
+
+    const secret = this.config.get<string>('razorpay.keySecret');
+    if (secret && signature && razorpayPaymentId && orderId) {
+      const expected = crypto
+        .createHmac('sha256', secret)
+        .update(`${orderId}|${razorpayPaymentId}`)
+        .digest('hex');
+
+      if (expected !== signature) {
+        this.logger.warn(`Razorpay signature mismatch for payment ${paymentId}`);
+        throw new BadRequestException('Invalid Razorpay signature');
+      }
+    }
+
+    payment.status = PaymentStatus.COMPLETED;
+    payment.providerPayload = {
+      ...(payment.providerPayload || {}),
+      razorpayPaymentId: razorpayPaymentId || null,
+      razorpayOrderId: orderId || payment.externalId,
+      razorpaySignature: signature || null,
+      verifiedAt: new Date(),
+    };
+    await payment.save();
+
+    this.logger.log(`Verified and completed Razorpay payment ${paymentId}`);
+    return {
+      success: true,
+      payment,
+    };
   }
 
   logWebhook(provider: string, body: unknown) {

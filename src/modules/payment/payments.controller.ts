@@ -52,6 +52,58 @@ export class PaymentsController {
     });
   }
 
+  @Post('razorpay/verify')
+  async rzpVerify(
+    @Body()
+    body: {
+      paymentId: string;
+      orderId?: string;
+      razorpayPaymentId?: string;
+      signature?: string;
+    },
+  ) {
+    const res = await this.payments.verifyRazorpay(
+      body.paymentId,
+      body.orderId,
+      body.razorpayPaymentId,
+      body.signature,
+    );
+    if (res.payment?.planId) {
+      try {
+        await this.planSales.completeSaleByPaymentId(res.payment._id.toString());
+      } catch {
+        /* idempotent or already finalized */
+      }
+    }
+    return res;
+  }
+
+  @Post('public/razorpay/verify')
+  async rzpPublicVerify(
+    @Body()
+    body: {
+      paymentId: string;
+      orderId?: string;
+      razorpayPaymentId?: string;
+      signature?: string;
+    },
+  ) {
+    const res = await this.payments.verifyRazorpay(
+      body.paymentId,
+      body.orderId,
+      body.razorpayPaymentId,
+      body.signature,
+    );
+    if (res.payment?.planId) {
+      try {
+        await this.planSales.completeSaleByPaymentId(res.payment._id.toString());
+      } catch {
+        /* idempotent or already finalized */
+      }
+    }
+    return res;
+  }
+
   @Post('webhook/stripe')
   stripeWebhook(@Req() req: RawBodyRequest<Request>, @Headers('stripe-signature') sig: string) {
     this.payments.logWebhook('stripe', { sig, body: req.body });

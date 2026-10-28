@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { UserRole } from '../../common/constants/app.constants';
 import { WalletService } from '../wallet/wallet.service';
 import { sanitizeEmail } from '../../common/utils/email.util';
+import { escapeRegex } from '../../common/utils/string.util';
 
 @Injectable()
 export class UsersService {
@@ -294,11 +295,13 @@ export class UsersService {
     const page = query.page || 1;
     const limit = query.limit || 20;
     const filter: any = {};
-    if (query.search) {
+    if (query.search?.trim()) {
+      const sanitized = escapeRegex(query.search.trim());
+      const re = new RegExp(sanitized, 'i');
       filter.$or = [
-        { name: new RegExp(query.search, 'i') },
-        { email: new RegExp(query.search, 'i') },
-        { referralCode: new RegExp(query.search, 'i') },
+        { name: re },
+        { email: re },
+        { referralCode: re },
       ];
     }
     const [items, total] = await Promise.all([

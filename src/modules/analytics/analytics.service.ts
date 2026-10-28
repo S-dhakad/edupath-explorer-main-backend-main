@@ -5,6 +5,7 @@ import { Commission, CommissionDocument } from '../commission/schemas/commission
 import { Purchase, PurchaseDocument } from '../purchases/purchase.schema';
 import { User, UserDocument } from '../users/user.schema';
 import { PaymentStatus } from '../../common/constants/app.constants';
+import { escapeRegex } from '../../common/utils/string.util';
 
 @Injectable()
 export class AnalyticsService {
@@ -157,8 +158,17 @@ export class AnalyticsService {
       });
     }
 
+    const adminDocs = await this.userModel
+      .find({ role: { $in: ['admin', 'ADMIN'] } })
+      .select('_id')
+      .lean();
+    const adminIds = adminDocs.map((a: any) => a._id);
+
     const match: Record<string, unknown> = {
-      beneficiaryUserId: { $ne: null },
+      beneficiaryUserId: {
+        $ne: null,
+        ...(adminIds.length > 0 ? { $nin: adminIds } : {}),
+      },
       incomeCategory: 'active',
     };
     if (since) match.createdAt = { $gte: since };
@@ -173,18 +183,20 @@ export class AnalyticsService {
         },
       },
       { $sort: { total: -1 } },
-      { $limit: limit },
+      { $limit: limit * 2 },
     ]);
 
     const ids = rows.map((r) => r._id);
     const users = await this.userModel
-      .find({ _id: { $in: ids } })
+      .find({ _id: { $in: ids }, role: { $nin: ['admin', 'ADMIN'] } })
       .select('name email avatarUrl activeIncome')
       .lean();
     const byId = new Map(users.map((u: any) => [u._id.toString(), u]));
 
-    return rows.map((r, i) => {
-      const u = byId.get(r._id.toString()) || {};
+    const validRows = rows.filter((r) => byId.has(r._id.toString())).slice(0, limit);
+
+    return validRows.map((r, i) => {
+      const u = byId.get(r._id.toString())!;
       const total = Math.round(((r.total || 0) + Number.EPSILON) * 100) / 100;
       const active = Math.round(((r.active || 0) + Number.EPSILON) * 100) / 100;
       return {
@@ -204,8 +216,9 @@ export class AnalyticsService {
     const page = query.page || 1;
     const limit = query.limit || 50;
     const filter: Record<string, unknown> = { role: 'user' };
-    if (query.search) {
-      const re = new RegExp(query.search, 'i');
+    if (query.search?.trim()) {
+      const sanitized = escapeRegex(query.search.trim());
+      const re = new RegExp(sanitized, 'i');
       filter.$or = [{ name: re }, { email: re }, { referralCode: re }];
     }
     const [items, total] = await Promise.all([

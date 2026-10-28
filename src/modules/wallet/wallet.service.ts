@@ -3,6 +3,7 @@ import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import { WalletRepository } from './wallet.repository';
 import { WalletTransactionType } from '../../common/constants/app.constants';
+import { runOptionalTransaction } from '../../common/utils/mongo-transaction.util';
 
 @Injectable()
 export class WalletService {
@@ -29,14 +30,9 @@ export class WalletService {
       incomeType === 'active'
         ? WalletTransactionType.AFFILIATE_COMMISSION_ACTIVE
         : WalletTransactionType.AFFILIATE_COMMISSION_PASSIVE;
-    const session = await this.connection.startSession();
-    try {
-      await session.withTransaction(async () => {
-        await this.repo.adjustAvailable(userId, amount, type, { purchaseId: ctx.purchaseId, meta: ctx.meta }, session);
-      });
-    } finally {
-      await session.endSession();
-    }
+    await runOptionalTransaction(this.connection, async (session) => {
+      await this.repo.adjustAvailable(userId, amount, type, { purchaseId: ctx.purchaseId, meta: ctx.meta }, session);
+    });
   }
 
   async listForUser(userId: string, page = 1, limit = 20) {

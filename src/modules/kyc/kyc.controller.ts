@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards, UseInterce
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { KycService } from './kyc.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -27,7 +28,11 @@ export class KycController {
       ],
       {
         storage: diskStorage({
-          destination: './uploads/kyc',
+          destination: (_req, _file, cb) => {
+            const dir = './uploads/kyc';
+            if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+            cb(null, dir);
+          },
           filename: (req, file, cb) => {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
             cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);

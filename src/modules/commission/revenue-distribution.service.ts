@@ -10,6 +10,7 @@ import { CourseDocument } from '../courses/course.schema';
 import { PlanSaleDocument } from '../plan-sales/plan-sale.schema';
 import { PlanSale } from '../plan-sales/plan-sale.schema';
 import { PaymentStatus, WalletTransactionType } from '../../common/constants/app.constants';
+import { runOptionalTransaction } from '../../common/utils/mongo-transaction.util';
 
 @Injectable()
 export class RevenueDistributionService {
@@ -42,7 +43,11 @@ export class RevenueDistributionService {
     let platformAmount = round2((total * platPct) / 100);
     let parentAmount = round2((total * parentPct) / 100);
 
-    const parentId = couponOwner.referredBy ? (couponOwner.referredBy as Types.ObjectId).toString() : null;
+    let parentId = extractIdString(couponOwner.referredBy);
+    if (parentId) {
+      const parentExists = await this.userModel.exists({ _id: new Types.ObjectId(parentId) });
+      if (!parentExists) parentId = null;
+    }
     if (!parentId) {
       platformAmount = round2(platformAmount + parentAmount);
       parentAmount = 0;
@@ -85,51 +90,46 @@ export class RevenueDistributionService {
       });
     }
 
-    const session = await this.connection.startSession();
-    try {
-      await session.withTransaction(async () => {
-        await this.commissionModel.insertMany(commissions as Commission[], { session });
+    await runOptionalTransaction(this.connection, async (session) => {
+      await this.commissionModel.insertMany(commissions as Commission[], session ? { session } : undefined);
 
+      await this.walletRepo.adjustAvailable(
+        ownerId,
+        ownerAmount,
+        WalletTransactionType.AFFILIATE_COMMISSION_ACTIVE,
+        { purchaseId, meta: { courseId: (course as any)._id?.toString?.() } },
+        session,
+      );
+      await this.userModel.findByIdAndUpdate(
+        ownerId,
+        { $inc: { activeIncome: ownerAmount } },
+        session ? { session } : undefined,
+      );
+
+      if (parentId && parentAmount > 0) {
         await this.walletRepo.adjustAvailable(
-          ownerId,
-          ownerAmount,
-          WalletTransactionType.AFFILIATE_COMMISSION_ACTIVE,
+          parentId,
+          parentAmount,
+          WalletTransactionType.AFFILIATE_COMMISSION_PASSIVE,
           { purchaseId, meta: { courseId: (course as any)._id?.toString?.() } },
           session,
         );
         await this.userModel.findByIdAndUpdate(
-          ownerId,
-          { $inc: { activeIncome: ownerAmount } },
-          { session },
+          parentId,
+          { $inc: { passiveIncome: parentAmount } },
+          session ? { session } : undefined,
         );
+      }
 
-        if (parentId && parentAmount > 0) {
-          await this.walletRepo.adjustAvailable(
-            parentId,
-            parentAmount,
-            WalletTransactionType.AFFILIATE_COMMISSION_PASSIVE,
-            { purchaseId, meta: { courseId: (course as any)._id?.toString?.() } },
-            session,
-          );
-          await this.userModel.findByIdAndUpdate(
-            parentId,
-            { $inc: { passiveIncome: parentAmount } },
-            { session },
-          );
-        }
-
-        await this.purchaseModel.findByIdAndUpdate(
-          purchaseOid,
-          {
-            commissionsDistributed: true,
-            paymentStatus: PaymentStatus.COMPLETED,
-          },
-          { session },
-        );
-      });
-    } finally {
-      await session.endSession();
-    }
+      await this.purchaseModel.findByIdAndUpdate(
+        purchaseOid,
+        {
+          commissionsDistributed: true,
+          paymentStatus: PaymentStatus.COMPLETED,
+        },
+        session ? { session } : undefined,
+      );
+    });
 
     this.logger.log(`Distributed commissions for purchase ${purchaseId}`);
   }
@@ -158,7 +158,11 @@ export class RevenueDistributionService {
     let parentAmount = round2((pool * parentPct) / 100);
     platformAmount = round2(platformAmount + Math.max(0, paidAmount - pool));
 
-    const parentId = seller.referredBy ? (seller.referredBy as Types.ObjectId).toString() : null;
+    let parentId = extractIdString(seller.referredBy);
+    if (parentId) {
+      const parentExists = await this.userModel.exists({ _id: new Types.ObjectId(parentId) });
+      if (!parentExists) parentId = null;
+    }
     if (!parentId) {
       platformAmount = round2(platformAmount + parentAmount);
       parentAmount = 0;
@@ -233,35 +237,38 @@ export class RevenueDistributionService {
   async distributePlatformOnly(purchase: PurchaseDocument): Promise<void> {
     if (purchase.commissionsDistributed) return;
     const purchaseOid = (purchase as any)._id as Types.ObjectId;
-    const session = await this.connection.startSession();
-    try {
-      await session.withTransaction(async () => {
-        await this.commissionModel.create(
-          [
-            {
-              purchaseId: purchaseOid,
-              beneficiaryUserId: null,
-              beneficiaryRole: 'platform',
-              incomeCategory: 'platform',
-              amount: purchase.amount,
-              currency: purchase.currency || 'INR',
-              percentApplied: 100,
-            },
-          ],
-          { session },
-        );
-        await this.purchaseModel.findByIdAndUpdate(
-          purchaseOid,
-          { commissionsDistributed: true, paymentStatus: PaymentStatus.COMPLETED },
-          { session },
-        );
-      });
-    } finally {
-      await session.endSession();
-    }
+    await runOptionalTransaction(this.connection, async (session) => {
+      await this.commissionModel.create(
+        [
+          {
+            purchaseId: purchaseOid,
+            beneficiaryUserId: null,
+            beneficiaryRole: 'platform',
+            incomeCategory: 'platform',
+            amount: purchase.amount,
+            currency: purchase.currency || 'INR',
+            percentApplied: 100,
+          },
+        ],
+        session ? { session } : undefined,
+      );
+      await this.purchaseModel.findByIdAndUpdate(
+        purchaseOid,
+        { commissionsDistributed: true, paymentStatus: PaymentStatus.COMPLETED },
+        session ? { session } : undefined,
+      );
+    });
   }
 }
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+function extractIdString(val: any): string | null {
+  if (!val) return null;
+  if (val instanceof Types.ObjectId) return val.toString();
+  if (typeof val === 'object' && val._id) return val._id.toString();
+  const str = String(val);
+  return Types.ObjectId.isValid(str) ? str : null;
 }

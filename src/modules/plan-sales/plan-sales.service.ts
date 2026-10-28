@@ -168,9 +168,16 @@ export class PlanSalesService {
 
     let uplinePromoCode = null;
     if (buyer.referredBy) {
-      const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
-      if (uplineUser) {
-        uplinePromoCode = (uplineUser as any).referralCode || null;
+      if (typeof buyer.referredBy === 'object' && (buyer.referredBy as any).referralCode) {
+        uplinePromoCode = (buyer.referredBy as any).referralCode;
+      } else {
+        const refId = extractIdString(buyer.referredBy);
+        if (refId) {
+          const uplineUser = await this.usersService.findById(refId);
+          if (uplineUser) {
+            uplinePromoCode = (uplineUser as any).referralCode || null;
+          }
+        }
       }
     }
 
@@ -460,7 +467,7 @@ export class PlanSalesService {
     let parentShare = round2((pool * parentPct) / 100);
     const surplus = Math.max(0, paidAmount - pool);
     platformShare = round2(platformShare + surplus);
-    const parentId = promoOwner?.referredBy ? (promoOwner.referredBy as Types.ObjectId).toString() : null;
+    const parentId = extractIdString(promoOwner?.referredBy);
     if (!parentId) {
       platformShare = round2(platformShare + parentShare);
       parentShare = 0;
@@ -668,9 +675,8 @@ export class PlanSalesService {
     const planOid = (plan as any)._id as Types.ObjectId;
     const buyerOid = new Types.ObjectId(buyerUserId);
 
-    let sellerOid: Types.ObjectId = buyer.referredBy
-      ? (buyer.referredBy as Types.ObjectId)
-      : new Types.ObjectId(this.config.get<string>('platform.userId') || '000000000000000000000000');
+    const defaultSellerId = this.config.get<string>('platform.userId') || '000000000000000000000000';
+    let sellerOid: Types.ObjectId = extractObjectId(buyer.referredBy) || new Types.ObjectId(defaultSellerId);
 
     let promo = dto.promoCode?.trim()?.toUpperCase();
     const ownCode = (buyer as any).referralCode?.trim()?.toUpperCase();
@@ -681,9 +687,16 @@ export class PlanSalesService {
       const owner = await this.usersService.findByReferralCode(validated.code);
       sellerOid = (owner as any)._id;
     } else if (!isOwnPromo && buyer.referredBy) {
-      const uplineUser = await this.usersService.findById(buyer.referredBy.toString());
-      if (uplineUser && (uplineUser as any).referralCode) {
-        promo = (uplineUser as any).referralCode;
+      if (typeof buyer.referredBy === 'object' && (buyer.referredBy as any).referralCode) {
+        promo = (buyer.referredBy as any).referralCode;
+      } else {
+        const refId = extractIdString(buyer.referredBy);
+        if (refId) {
+          const uplineUser = await this.usersService.findById(refId);
+          if (uplineUser && (uplineUser as any).referralCode) {
+            promo = (uplineUser as any).referralCode;
+          }
+        }
       }
     }
 
@@ -1276,4 +1289,19 @@ export class PlanSalesService {
 
 function round2(n: number) {
   return Math.round(n * 100) / 100;
+}
+
+function extractObjectId(val: any): Types.ObjectId | null {
+  if (!val) return null;
+  if (val instanceof Types.ObjectId) return val;
+  if (typeof val === 'object' && val._id) {
+    return val._id instanceof Types.ObjectId ? val._id : new Types.ObjectId(val._id.toString());
+  }
+  const str = String(val);
+  return Types.ObjectId.isValid(str) ? new Types.ObjectId(str) : null;
+}
+
+function extractIdString(val: any): string | null {
+  const oid = extractObjectId(val);
+  return oid ? oid.toString() : null;
 }
